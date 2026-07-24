@@ -487,22 +487,30 @@ const Game = {
           this.futuro = true;
           c.x = World.FUTURE_X; c.z = 0.55; c.vx = 0; c.gaze = 0; c.smile = 0;
           c.dir = -1; c.faceDir = undefined; c.mode = 'sit'; c.sitting = false;
-          if (outro) { outro.x = World.FUTURE_X + 74; outro.z = 0.55; outro.vx = 0; outro.alpha = 1; outro.dir = -1; }
+          if (outro) {
+            outro.x = World.FUTURE_X + 74; outro.z = 0.55; outro.vx = 0;
+            outro.alpha = 1; outro.dir = -1;
+            outro.label = 0;                   // aqui ele já é só o marido dela
+            outro.mode = 'parado';
+          }
           m.x = World.FUTURE_X - 1100;         // ele não faz parte desta cena
           m.alpha = 0;
           this.cam.x = World.FUTURE_X + 24;
-          env.dayTarget = 0.63;                // o dia não volta a abrir de verdade
-          env.rainTarget = 0.22;
+          // fim de tarde nublado: dá para ver tudo, mas sem cor nenhuma
+          env.dayTarget = 0.50;
+          env.rainTarget = 0.12;
           AudioEngine.swell();
         }
       } else {
         // 2ª parte: a casa, os anos, as crianças — e o campo sem cor
         this.flash = Math.max(0, this.flash - dt * 0.7);
-        env.connection = 0; env.warmth = U.lerp(env.warmth, 0, dt * 2);
+        // um fiapo de calor: a cena é triste, não é escura
+        env.connection = 0; env.warmth = U.lerp(env.warmth, 0.14, dt * 2);
         c.vx = 0; c.vz = 0; c.gaze = 0; c.smile = U.lerp(c.smile, 0, dt);
         c.step(dt, env);
         if (outro) { outro.vx = 0; outro.step(dt, env); }
-        this.cam.rise = U.lerp(this.cam.rise, 30, dt * 0.4);
+        // a cena sobe um pouco para o casal não ficar atrás do texto final
+        this.cam.rise = U.lerp(this.cam.rise, -135, dt * 0.5);
       }
 
     } else {
@@ -546,6 +554,9 @@ const Game = {
     this.dom.endTag.innerHTML = D.tag;
     this.dom.endQuote.innerHTML = D.quote;
     this.dom.endBody.innerHTML = D.body;
+    // no final triste o botão vira um convite: ainda dá tempo de responder
+    const zap = document.getElementById('btnZap');
+    if (zap) zap.innerHTML = id === 1 ? '💬 responder pro Matheus' : '💬 ainda dá tempo';
     this.dom.end.classList.remove('hidden');
     this.dom.hud.classList.add('hidden');
   },
@@ -911,7 +922,7 @@ const Game = {
         : m.x + U.clamp((c.x - m.x) * 0.38, -maxBias, maxBias));
     // em tela de celular o afastamento é menor, senão eles viram formiguinhas
     const minZoom = this.view.w < 720 ? 0.90 : 0.78;
-    const zoom = this.wedding ? 1.85 : (this.futuro ? 1.25 : U.map(d, 260, 1500, 1.08, minZoom));
+    const zoom = this.wedding ? 1.85 : (this.futuro ? 1.05 : U.map(d, 260, 1500, 1.08, minZoom));
     const base = this.baseScale();
     this.cam.scale = U.lerp(this.cam.scale, base * zoom, dt * (this.wedding ? 0.7 : 1.1));
     const halfW = this.view.w / 2 / this.cam.scale;
@@ -1006,8 +1017,11 @@ const Game = {
     for (const b of World.bushes) {
       if (b.x > x0 && b.x < x1) drawables.push({ z: b.z, f: () => World.drawBush(ctx, b, env) });
     }
-    for (const mm of World.memories) {
-      if (mm.x > x0 && mm.x < x1) drawables.push({ z: mm.z - 0.01, f: () => World.drawMemory(ctx, mm, env) });
+    // os lugares de memória não aparecem nas cenas finais (atrapalhavam o clima)
+    if (!this.wedding && !this.futuro) {
+      for (const mm of World.memories) {
+        if (mm.x > x0 && mm.x < x1) drawables.push({ z: mm.z - 0.01, f: () => World.drawMemory(ctx, mm, env) });
+      }
     }
     drawables.push({ z: this.clara.z, f: () => this.clara.draw(ctx, env) });
     drawables.push({ z: this.matheus.z, f: () => this.matheus.draw(ctx, env) });
