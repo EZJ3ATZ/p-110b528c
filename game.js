@@ -65,7 +65,7 @@ const Game = {
   // rivais, flores e casamento
   rivals: [], rivalTimer: 26, rivalCount: 0, avisouRival: false,
   flor: { cd: 0, dadas: 0 },
-  wedding: false, flash: 0,
+  wedding: false, flash: 0, shake: 0,
 
   /* ------------------------------------------------------------------------
      O ROTEIRO — quatro escolhas, uns 80 segundos no total.
@@ -164,7 +164,7 @@ const Game = {
     this.descendo.forEach(l => l.hit = false);
     this.rivals = []; this.rivalTimer = 26; this.rivalCount = 0; this.avisouRival = false;
     this.flor = { cd: 0, dadas: 0 };
-    this.wedding = false; this.futuro = false; this.flash = 0;
+    this.wedding = false; this.futuro = false; this.flash = 0; this.shake = 0;
     this.dom.florBtn.classList.add('hidden');
     this.cam.x = startX; this.cam.y = 600; this.cam.rise = 0;
     this.cam.scale = this.baseScale();
@@ -634,13 +634,13 @@ const Game = {
         a: { txt: '🍔  Só com você. Quer um agora?', ef: { gesto: 'burger', conexao: 0.18 } },
         b: { txt: 'Não lembro mais disso.', ef: { conexao: -0.10 } }
       },
-      { esperar: 1.2, rival: true },
+      { esperar: 2.4, rival: true },
       {
-        cena: 'Alguém chegou perto dela e puxou conversa.<br />Ela parou para ouvir.',
-        a: { txt: 'Ir até lá e ficar do lado dela', ef: { irRival: true, conexao: 0.14 } },
+        cena: 'Apareceu um cara com a sua cara, dizendo ser você.<br />Ela parou, sem saber qual é o verdadeiro.',
+        a: { txt: '👊  Dar um soco nele', ef: { soco: true, conexao: 0.16 } },
         b: { txt: 'Deixar acontecer', ef: { conexao: -0.20, ...F('Você deixou. Ela também percebe quando você não vem.') } }
       },
-      { esperar: 3.4 },
+      { esperar: 2.6 },
       {
         quem: 'Clara', cena: '“Por que você voltou?”',
         a: { txt: 'Porque eu nunca fui embora de verdade.', ef: { conexao: 0.20 } },
@@ -667,13 +667,43 @@ const Game = {
     if (ef.conexao) env.connection = U.clamp(env.connection + ef.conexao, 0, 1);
     if (ef.frase) this.showLine({ sym: ef.conexao < 0 ? '🍂' : '💛', txt: ef.frase });
     if (ef.ir === 'clara') this.irAteEla();
-    if (ef.irRival && this.rivals[0]) {
-      const r = this.rivals[0];
-      this.irAte(r.x - Math.sign(r.x - m.x) * 105);
-    }
+    if (ef.soco) this.socar();
     if (ef.gesto) this.gesto(ef.gesto);
     if (ef.repetir) this.repetirBeat = true;
     if (ef.fim) this.endWith(ef.fim);
+  },
+
+  /**
+   * O soco no Matheus falso.
+   * Ele atravessa a tela num piscar, acerta, o outro voa e some.
+   * Não é briga: é o verdadeiro se impondo — e ela vendo quem ficou.
+   */
+  socar() {
+    const m = this.matheus, c = this.clara, r = this.rivals[0];
+    if (!r) return;
+    const dir = Math.sign(r.x - m.x) || 1;
+
+    this.claraScript = null;
+    this.autoWalk = null;
+    m.x = r.x - dir * 46;                  // ele já chega junto: o soco é imediato
+    m.z = r.z;
+    m.dir = dir; m.faceDir = dir;
+    m.gaze = 0; m.slump = 0;
+    m.vx = dir * 60;
+
+    r.levarSoco(dir);
+    this.shake = 0.55;                     // a câmera treme
+
+    const px = (m.x + r.x) / 2, py = World.bandY(r.z) - 74;
+    Particles.emit('emoji', px, py, 1, { txt: '👊', s: 34 });
+    Particles.emit('burst', px, py, 26, { c: [255, 232, 200] });
+    for (let i = 0; i < 8; i++) Particles.emit('spark', px, py, 1, { c: [255, 244, 220] });
+    AudioEngine.impacto();
+
+    // ela vira para o verdadeiro
+    c.gazeWant = true; c.gazeTimer = 7; c.smile = 1;
+    c.mode = 'walk_with'; c.decision = 0.1;
+    setTimeout(() => this.showLine({ sym: '👊', txt: 'Só existe um. E foi o que ficou.' }), 900);
   },
 
   /** um gesto: ele chega junto, o símbolo sobe e ela responde no rosto */
@@ -706,12 +736,20 @@ const Game = {
 
     // 1) espera curta
     if (b.esperar !== undefined) {
-      if (this.beatT === dt && b.rival) {           // o outro entra em cena
+      if (this.beatT === dt && b.rival) {
+        // o falso entra pelo lado OPOSTO ao Matheus e para ao lado dela:
+        // fica sempre "matheus — clara — falso", claro de ler na tela
         const lado = (Math.sign(c.x - m.x) || 1);
-        const r = new Rival(c.x + lado * 620, c.z, this.rivalCount++);
-        r.alvoX = c.x + lado * 300;
+        const r = new Rival(c.x + lado * 520, c.z, this.rivalCount++);
+        r.alvoX = c.x + lado * 92;
         this.rivals.push(r);
-        this.claraScript = { alvoX: r.alvoX - lado * 105 };
+      }
+      // se o falso está entrando em cena, espera ele chegar ao lado dela
+      if (b.rival) {
+        const r = this.rivals[0];
+        const chegou = r && (r.mode === 'esperando' || r.mode === 'insistindo');
+        if (chegou || this.beatT > 8) this.proximoBeat();
+        return;
       }
       if (this.beatT > b.esperar) this.proximoBeat();
       return;
@@ -919,6 +957,8 @@ const Game = {
       for (const l of this.descendo) if (l.hit && conn > l.c + 0.22) l.hit = false;
     }
 
+    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 1.6);
+
     /* ---- botão da flor: só aparece quando ela pode receber ---- */
     const podeDar = this.state === 'playing' && !!m.holding && Math.abs(c.x - m.x) < 190;
     this.dom.florBtn.classList.toggle('hidden', !podeDar);
@@ -942,6 +982,11 @@ const Game = {
 
     // mundo (dentro da câmera)
     ctx.save();
+    // tremor do soco
+    if (this.shake > 0.001) {
+      const k = this.shake * this.shake * 16;
+      ctx.translate(U.rand(-k, k), U.rand(-k, k));
+    }
     ctx.translate(view.w / 2, view.h / 2);
     ctx.scale(cam.scale, cam.scale);
     ctx.translate(-cam.x, -cam.y);
@@ -966,7 +1011,9 @@ const Game = {
     }
     drawables.push({ z: this.clara.z, f: () => this.clara.draw(ctx, env) });
     drawables.push({ z: this.matheus.z, f: () => this.matheus.draw(ctx, env) });
-    for (const r of this.rivals) drawables.push({ z: r.z, f: () => r.draw(ctx, env) });
+    for (const r of this.rivals) {
+      drawables.push({ z: r.z, f: () => { r.draw(ctx, env); r.drawLabel(ctx, env); } });
+    }
 
     drawables.sort((a, b) => a.z - b.z);
     for (const d of drawables) d.f();
