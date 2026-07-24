@@ -4,8 +4,24 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>Matheus e Clara</title>
-<meta name="description" content="Um pequeno jogo sobre distância, memória e as pessoas que mudam a gente para sempre." />
+<meta name="description" content="Quanto mais perto ela fica, mais bonito o mundo inteiro fica. Um pequeno jogo — e a última escolha é dela." />
 <meta name="theme-color" content="#0b1020" />
+
+<!-- Prévia do link (WhatsApp, Instagram, Telegram): sem isto o link chega
+     "pelado", só a URL, e quase ninguém clica. -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Matheus e Clara" />
+<meta property="og:title" content="Matheus & Clara" />
+<meta property="og:description" content="Quanto mais perto ela fica, mais bonito o mundo inteiro fica. A última escolha é dela." />
+<meta property="og:url" content="https://ezj3atz.github.io/p-110b528c/" />
+<meta property="og:image" content="https://ezj3atz.github.io/p-110b528c/preview.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="pt_BR" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Matheus & Clara" />
+<meta name="twitter:description" content="Quanto mais perto ela fica, mais bonito o mundo inteiro fica." />
+<meta name="twitter:image" content="https://ezj3atz.github.io/p-110b528c/preview.jpg" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%8C%BB%3C/text%3E%3C/svg%3E" />
 <!-- o ?v= força o navegador a pegar a versão nova quando o jogo é republicado -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -94,7 +110,13 @@
       <p class="tag" id="endTag">final</p>
       <p class="quote" id="endQuote"></p>
       <p class="body" id="endBody"></p>
-      <button id="btnAgain" class="big">recomeçar</button>
+      <div class="row">
+        <!-- abre a conversa já com a mensagem escrita; ela só aperta enviar -->
+        <a id="btnZap" class="big zap"
+           href="https://wa.me/5531982201678?text=oi%20quero%20casar%20com%20voce"
+           target="_blank" rel="noopener">💬 responder pro Matheus</a>
+        <button id="btnAgain" class="ghost">recomeçar</button>
+      </div>
     </div>
   </section>
 </div>
