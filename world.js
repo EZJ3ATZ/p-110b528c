@@ -87,6 +87,7 @@ const World = {
   BAND_Y0: 552, BAND_Y1: 782,     // faixa onde os personagens andam
   DAY_LENGTH: 320,  // segundos de um ciclo dia->noite->dia completo
   ALTAR_X: 4600,    // a clareira onde acontece o casamento (final feliz)
+  FUTURE_X: 2300,   // onde acontece a cena "anos depois" (o outro caminho)
 
   /* ----- conteúdo gerado ----- */
   trees: [], bushes: [], tufts: [], stones: [], flowers: [], memories: [], clouds: [], stars: [],
@@ -168,8 +169,8 @@ const World = {
     // Um punhado de flores já existe desde o começo — o mundo nunca esteve morto.
     for (let i = 0; i < 80; i++) this.plantFlower(U.rand(0, this.WIDTH), U.rand(0, 1), 1);
 
-    // abre uma clareira em volta do altar (o casamento precisa de espaço)
-    const perto = o => Math.abs(o.x - this.ALTAR_X) < 300;
+    // abre clareiras nas duas cenas finais (altar e "anos depois")
+    const perto = o => Math.abs(o.x - this.ALTAR_X) < 300 || Math.abs(o.x - this.FUTURE_X) < 300;
     this.trees = this.trees.filter(t => !(perto(t) && t.z > 0.2));
     this.bushes = this.bushes.filter(b => !perto(b));
     this.stones = this.stones.filter(s => !perto(s));
@@ -803,6 +804,69 @@ const World = {
     ctx.fillStyle = g;
     ctx.fillRect(X - 260, yBase - 350, 520, 520);
     ctx.restore();
+  },
+
+  /* ======================================================================
+     ANOS DEPOIS — a cena do outro caminho
+     A casa, o quintal, as crianças. Tudo certo. Tudo sem cor.
+     ====================================================================== */
+  drawFuturo(ctx, env, t) {
+    const X = this.FUTURE_X;
+    const yb = this.bandY(0.30);
+
+    /* --- a casa, atrás --- */
+    const parede = this.tone([158, 150, 144], env, 0.6);
+    const telhado = this.tone([120, 96, 92], env, 0.6);
+    ctx.fillStyle = U.rgb(parede);
+    ctx.fillRect(X - 130, yb - 96, 190, 96);
+    ctx.fillStyle = U.rgb(telhado);
+    ctx.beginPath();
+    ctx.moveTo(X - 148, yb - 94);
+    ctx.lineTo(X - 35, yb - 152);
+    ctx.lineTo(X + 78, yb - 94);
+    ctx.closePath();
+    ctx.fill();
+    // janelas: uma acesa, as outras não
+    ctx.fillStyle = U.rgb(this.tone([206, 186, 140], env, 0.5), 0.85);
+    ctx.fillRect(X - 108, yb - 74, 30, 26);
+    ctx.fillStyle = U.rgb(this.tone([92, 96, 106], env, 0.7));
+    ctx.fillRect(X - 56, yb - 74, 30, 26);
+    ctx.fillRect(X - 4, yb - 74, 30, 26);
+    ctx.fillStyle = U.rgb(telhado);
+    ctx.fillRect(X + 30, yb - 52, 24, 52);     // porta
+
+    // varal com roupas paradas (não venta mais nada aqui)
+    ctx.strokeStyle = U.rgb(this.tone([120, 120, 126], env, 0.6));
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(X + 96, yb - 66); ctx.lineTo(X + 210, yb - 58); ctx.stroke();
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = U.rgb(this.tone([176, 174, 178], env, 0.6), 0.9);
+      ctx.fillRect(X + 106 + i * 26, yb - 64 + i * 2, 15, 22);
+    }
+
+    /* --- as crianças brincando no quintal --- */
+    const kids = [
+      { x: X + 128, z: 0.78, s: 0.52, ph: 0 },
+      { x: X + 176, z: 0.86, s: 0.46, ph: 1.7 }
+    ];
+    for (const k of kids) {
+      const y = this.bandY(k.z), sc = this.depthScale(k.z) * k.s;
+      const hop = Math.abs(Math.sin(t * 2.1 + k.ph)) * 5 * sc;
+      const roupa = this.tone(k.ph ? [126, 108, 128] : [104, 118, 134], env, 0.55);
+      ctx.fillStyle = U.rgb(env.ambient, 0.18);
+      ctx.beginPath(); ctx.ellipse(k.x, y, 12 * sc, 3.5 * sc, 0, 0, 6.283); ctx.fill();
+      ctx.fillStyle = U.rgb(roupa);
+      ctx.beginPath();
+      ctx.ellipse(k.x, y - 26 * sc - hop, 8 * sc, 15 * sc, 0, 0, 6.283);
+      ctx.fill();
+      ctx.fillStyle = U.rgb(this.tone([228, 194, 168], env, 0.5));
+      ctx.beginPath(); ctx.arc(k.x, y - 48 * sc - hop, 7.5 * sc, 0, 6.283); ctx.fill();
+      ctx.fillStyle = U.rgb(this.tone([70, 56, 50], env, 0.5));
+      ctx.beginPath();
+      ctx.ellipse(k.x, y - 51 * sc - hop, 7.6 * sc, 5 * sc, 0, Math.PI, 0);
+      ctx.fill();
+    }
   },
 
   /* ======================================================================
