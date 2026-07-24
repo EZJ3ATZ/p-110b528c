@@ -379,11 +379,12 @@ const Game = {
 
   /** frase da reconquista (sem símbolo de lugar, só o sentimento) */
   showLine(l) {
+    if (this.escolhaAberta) return;         // nunca competir com o cartão de escolha
     this.dom.memSym.textContent = l.sym;
     this.dom.memTxt.textContent = l.txt;
     this.dom.memCard.classList.add('show');
-    this.memTimer = 5.5;
-    this.lineCooldown = 12;
+    this.memTimer = 3.6;
+    this.lineCooldown = 10;
     if (this.subindo.includes(l)) {
       AudioEngine.chime();
       Particles.emit('burst', this.env.midX, World.BAND_Y0 - 30, 18, { c: [255, 220, 160] });
