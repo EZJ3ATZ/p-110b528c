@@ -244,6 +244,38 @@ const AudioEngine = {
     });
   },
 
+  /** o soco: um baque curto e seco (ruído grave com decaimento rápido) */
+  impacto() {
+    if (!this.ctx || !this.started) return;
+    const t = this.ctx.currentTime + 0.01;
+
+    // corpo do baque
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.55, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+    g.connect(this.master);
+    const o = this.ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(180, t);
+    o.frequency.exponentialRampToValueAtTime(42, t + 0.22);
+    o.connect(g); o.start(t); o.stop(t + 0.3);
+
+    // "estalo" por cima
+    const nz = this.ctx.createBufferSource();
+    const len = Math.floor(this.ctx.sampleRate * 0.12);
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 5);
+    nz.buffer = buf;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 0.8;
+    const ng = this.ctx.createGain();
+    ng.gain.value = 0.30;
+    nz.connect(f); f.connect(ng); ng.connect(this.master);
+    nz.start(t);
+  },
+
   /** acorde suspenso usado nos finais */
   swell() {
     if (!this.ctx || !this.started) return;
