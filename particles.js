@@ -56,6 +56,15 @@ const Particles = {
             c: [248, 196, 210], rot: Math.random() * 6.283, spin: U.rand(-3, 3), layer: 1
           });
           break;
+        // símbolo dos gestos (flor, lanche, beijo) subindo entre os dois
+        case 'emoji':
+          this.add({
+            type: 'emoji', x: x + U.rand(-14, 14), y,
+            vx: U.rand(-9, 9), vy: U.rand(-34, -18),
+            life: 0, max: U.rand(1.8, 2.8), s: opt.s || 22,
+            txt: opt.txt || '💛', c: [255, 255, 255], layer: 1
+          });
+          break;
       }
     }
   },
@@ -196,6 +205,11 @@ const Particles = {
         case 'starlet':
           p.x += p.vx * dt; p.y += p.vy * dt; p.rot += dt * 1.4;
           break;
+        case 'emoji':
+          p.x += (p.vx + Math.sin(p.life * 3) * 10) * dt;
+          p.y += p.vy * dt;
+          p.vy += 9 * dt;
+          break;
       }
 
       // partículas de ambiente somem quando o clima emocional muda
@@ -301,6 +315,15 @@ const Particles = {
           ctx.fillStyle = U.rgb(p.c);
           ctx.beginPath(); ctx.arc(p.x, p.y, p.s * (1 - t * 0.5), 0, 6.283); ctx.fill();
           ctx.globalCompositeOperation = 'source-over';
+          break;
+        }
+        case 'emoji': {
+          ctx.globalAlpha = fade;
+          ctx.font = (p.s * (0.7 + fade * 0.4)).toFixed(1) +
+            'px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(p.txt, p.x, p.y);
           break;
         }
         case 'starlet': {
