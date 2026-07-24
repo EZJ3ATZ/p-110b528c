@@ -150,11 +150,11 @@ const Game = {
     this.claraBaseX = this.clara.x;
     this.dom.choice.classList.add('hidden');
 
-    // começa no fim de tarde cinza, com garoa: o mundo já está esperando por ela
+    // dia nublado, não noite: o jogo é engraçado, o cinza é só o "antes"
     Object.assign(this.env, {
-      t: 0, dayT: 0.66, dayTarget: null,
-      connection: 0.05, warmth: 0.05, mutual: 0,
-      wind: 0.75, rain: 0.30, rainTarget: 0.45, night: 0, light: 1
+      t: 0, dayT: 0.42, dayTarget: null,
+      connection: 0.08, warmth: 0.08, mutual: 0,
+      wind: 0.6, rain: 0.12, rainTarget: 0.18, night: 0, light: 1
     });
     this.closeTime = 0; this.divergeTime = 0; this.patience = 120;
     this.stillTime = 0; this.rainTimer = 34; this.wasMutual = false;
@@ -927,7 +927,8 @@ const Game = {
     if (env.dayTarget !== null) {
       env.dayT += U.clamp(env.dayTarget - env.dayT, -1, 1) * dt * 0.18;
     } else {
-      const alvo = U.lerp(0.685, 0.34, U.smooth(env.warmth));
+      // mesmo "frio", o dia continua claro — nada de noite no meio da piada
+      const alvo = U.lerp(0.56, 0.34, U.smooth(env.warmth));
       env.dayT += (alvo - env.dayT) * dt * 0.35;
     }
 
@@ -1011,9 +1012,9 @@ const Game = {
 
     this.rainTimer -= dt;
     if (this.rainTimer <= 0) {
-      // longe dela chove quase sempre; perto, o tempo abre. Sem sutileza.
-      const chance = 0.9 * (1 - env.warmth);
-      env.rainTarget = Math.random() < chance ? U.rand(0.4, 0.9) : 0;
+      // garoa quando está longe; perto, o tempo abre. Sem tempestade.
+      const chance = 0.7 * (1 - env.warmth);
+      env.rainTarget = Math.random() < chance ? U.rand(0.2, 0.45) : 0;
       this.rainTimer = U.rand(22, 45);
     }
     let rt = env.rainTarget || 0;
