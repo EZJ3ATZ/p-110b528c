@@ -214,9 +214,10 @@ const World = {
     const w = env.warmth;
 
     // O frio emocional lava a cor do céu; o calor a intensifica.
-    env.skyTop = U.desat(U.mix(a.top, b.top, k), (1 - w) * 0.7);
-    env.skyMid = U.desat(U.mix(a.mid, b.mid, k), (1 - w) * 0.7);
-    env.skyBot = U.desat(U.mix(a.bot, b.bot, k), (1 - w) * 0.6);
+    // dessatura, mas sem escurecer: "antes" é dia nublado, não noite
+    env.skyTop = U.desat(U.mix(a.top, b.top, k), (1 - w) * 0.42, [150, 166, 188]);
+    env.skyMid = U.desat(U.mix(a.mid, b.mid, k), (1 - w) * 0.42, [168, 182, 200]);
+    env.skyBot = U.desat(U.mix(a.bot, b.bot, k), (1 - w) * 0.38, [186, 196, 210]);
     env.sunColor = U.mix(a.sun, b.sun, k);
 
     const baseLight = U.lerp(a.light, b.light, k);
@@ -246,7 +247,7 @@ const World = {
    * É o que faz o mundo inteiro "ganhar cor" quando eles estão perto.
    */
   tone(c, env, ambientMix = 0.55) {
-    let out = U.desat(c, (1 - env.warmth) * 0.52);
+    let out = U.desat(c, (1 - env.warmth) * 0.42, [138, 148, 156]);
     out = U.scale(out, env.light);
     out = U.mix(out, env.ambient, (1 - U.clamp(env.light, 0, 1)) * ambientMix);
     // leve dourado quando quente
@@ -950,7 +951,7 @@ const World = {
     if (cold > 0.02) {
       ctx.save();
       ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = U.rgb([150, 176, 214], cold * 0.24);
+      ctx.fillStyle = U.rgb([176, 196, 224], cold * 0.15);
       ctx.fillRect(0, 0, view.w, view.h);
       ctx.restore();
     }
@@ -994,7 +995,7 @@ const World = {
     const v = ctx.createRadialGradient(view.w / 2, view.h / 2, Math.min(view.w, view.h) * 0.34,
       view.w / 2, view.h / 2, Math.max(view.w, view.h) * 0.78);
     v.addColorStop(0, 'rgba(0,0,0,0)');
-    v.addColorStop(1, 'rgba(6,10,22,' + (0.15 + cold * 0.16) + ')');
+    v.addColorStop(1, 'rgba(6,10,22,' + (0.12 + cold * 0.09) + ')');
     ctx.fillStyle = v;
     ctx.fillRect(0, 0, view.w, view.h);
   }
