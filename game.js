@@ -457,7 +457,8 @@ const Game = {
         m.gaze = c.gaze = 1;
         m.lookAt(c); c.lookAt(m);
         m.smile = c.smile = 1;
-        this.cam.rise = U.lerp(this.cam.rise, 20, dt * 0.4);
+        // sobe a cena para os noivos não ficarem atrás do texto final
+        this.cam.rise = U.lerp(this.cam.rise, -120, dt * 0.45);
         // pétalas caindo sobre os dois
         if (Math.random() < dt * 26) {
           Particles.emit('petal', World.ALTAR_X + U.rand(-220, 220), World.BAND_Y0 - 220, 1);
