@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0b1020" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%8C%BB%3C/text%3E%3C/svg%3E" />
 <!-- o ?v= força o navegador a pegar a versão nova quando o jogo é republicado -->
-<link rel="stylesheet" href="style.css?v=3" />
+<link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
 
@@ -37,6 +37,16 @@
     <span id="hintTxt2">segure <b>espaço</b> para olhar para ela</span>
   </div>
 
+  <!-- ESCOLHAS: o jogo inteiro acontece em quatro delas -->
+  <div id="choiceCard" class="hidden">
+    <p class="cena" id="choiceCena"></p>
+    <p class="pergunta" id="choicePergunta"></p>
+    <div class="opcoes">
+      <button id="choiceA"></button>
+      <button id="choiceB"></button>
+    </div>
+  </div>
+
   <!-- cartão de memória -->
   <div id="memoryCard">
     <div class="sym" id="memSym">🌻</div>
@@ -51,13 +61,12 @@
       <p class="quote">Quanto mais perto ela fica, mais bonito o mundo inteiro fica.</p>
       <p class="body">
         Longe, tudo esfria: o vento, a chuva, as cores.<br />
-        Perto, o campo floresce — e ela fica.<br />
-        Colha flores para ela. E não demore: sempre aparece alguém.
+        Perto, o campo floresce.<br /><br />
+        São <b>quatro escolhas</b>. As três primeiras são dele.<br />
+        A última é dela — e decide como isso termina.
       </p>
       <button id="btnStart" class="big">começar</button>
-      <p class="keys" id="startKeys">
-        <b>← → ↑ ↓</b> / <b>WASD</b> caminhar &nbsp;·&nbsp; <b>espaço</b> olhar &nbsp;·&nbsp; <b>E</b> dar a flor
-      </p>
+      <p class="keys" id="startKeys">leva uns dois minutos &nbsp;·&nbsp; é só escolher</p>
     </div>
   </section>
 
@@ -85,10 +94,10 @@
 </div>
 
 <!-- ordem importa: world define os utilitários usados pelos outros -->
-<script src="world.js?v=3"></script>
-<script src="particles.js?v=3"></script>
-<script src="characters.js?v=3"></script>
-<script src="audio.js?v=3"></script>
-<script src="game.js?v=3"></script>
+<script src="world.js?v=4"></script>
+<script src="particles.js?v=4"></script>
+<script src="characters.js?v=4"></script>
+<script src="audio.js?v=4"></script>
+<script src="game.js?v=4"></script>
 </body>
 </html>
