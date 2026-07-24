@@ -813,58 +813,79 @@ const World = {
   drawFuturo(ctx, env, t) {
     const X = this.FUTURE_X;
     const yb = this.bandY(0.30);
+    const K = 1.7;                    // a casa é grande: é o cenário da cena
 
     /* --- a casa, atrás --- */
     const parede = this.tone([158, 150, 144], env, 0.6);
     const telhado = this.tone([120, 96, 92], env, 0.6);
     ctx.fillStyle = U.rgb(parede);
-    ctx.fillRect(X - 130, yb - 96, 190, 96);
+    ctx.fillRect(X - 130 * K, yb - 96 * K, 190 * K, 96 * K);
     ctx.fillStyle = U.rgb(telhado);
     ctx.beginPath();
-    ctx.moveTo(X - 148, yb - 94);
-    ctx.lineTo(X - 35, yb - 152);
-    ctx.lineTo(X + 78, yb - 94);
+    ctx.moveTo(X - 148 * K, yb - 94 * K);
+    ctx.lineTo(X - 35 * K, yb - 152 * K);
+    ctx.lineTo(X + 78 * K, yb - 94 * K);
     ctx.closePath();
     ctx.fill();
     // janelas: uma acesa, as outras não
     ctx.fillStyle = U.rgb(this.tone([206, 186, 140], env, 0.5), 0.85);
-    ctx.fillRect(X - 108, yb - 74, 30, 26);
+    ctx.fillRect(X - 108 * K, yb - 74 * K, 30 * K, 26 * K);
     ctx.fillStyle = U.rgb(this.tone([92, 96, 106], env, 0.7));
-    ctx.fillRect(X - 56, yb - 74, 30, 26);
-    ctx.fillRect(X - 4, yb - 74, 30, 26);
+    ctx.fillRect(X - 56 * K, yb - 74 * K, 30 * K, 26 * K);
+    ctx.fillRect(X - 4 * K, yb - 74 * K, 30 * K, 26 * K);
     ctx.fillStyle = U.rgb(telhado);
-    ctx.fillRect(X + 30, yb - 52, 24, 52);     // porta
+    ctx.fillRect(X + 30 * K, yb - 52 * K, 24 * K, 52 * K);     // porta
 
     // varal com roupas paradas (não venta mais nada aqui)
     ctx.strokeStyle = U.rgb(this.tone([120, 120, 126], env, 0.6));
-    ctx.lineWidth = 1.4;
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.moveTo(X + 96, yb - 66); ctx.lineTo(X + 210, yb - 58); ctx.stroke();
+    ctx.moveTo(X + 96 * K, yb - 66 * K); ctx.lineTo(X + 210 * K, yb - 58 * K); ctx.stroke();
     for (let i = 0; i < 4; i++) {
       ctx.fillStyle = U.rgb(this.tone([176, 174, 178], env, 0.6), 0.9);
-      ctx.fillRect(X + 106 + i * 26, yb - 64 + i * 2, 15, 22);
+      ctx.fillRect(X + (106 + i * 26) * K, yb - (64 - i * 2) * K, 15 * K, 22 * K);
     }
 
-    /* --- as crianças brincando no quintal --- */
+    /* --- as crianças brincando no quintal, ao lado dos pais --- */
     const kids = [
-      { x: X + 128, z: 0.78, s: 0.52, ph: 0 },
-      { x: X + 176, z: 0.86, s: 0.46, ph: 1.7 }
+      { x: X - 152, z: 0.60, s: 0.88, ph: 0,   c: [186, 196, 214] },
+      { x: X - 84,  z: 0.66, s: 0.82, ph: 1.7, c: [206, 184, 200] },
+      { x: X + 176, z: 0.62, s: 0.85, ph: 3.1, c: [196, 200, 178] }
     ];
     for (const k of kids) {
       const y = this.bandY(k.z), sc = this.depthScale(k.z) * k.s;
-      const hop = Math.abs(Math.sin(t * 2.1 + k.ph)) * 5 * sc;
-      const roupa = this.tone(k.ph ? [126, 108, 128] : [104, 118, 134], env, 0.55);
-      ctx.fillStyle = U.rgb(env.ambient, 0.18);
-      ctx.beginPath(); ctx.ellipse(k.x, y, 12 * sc, 3.5 * sc, 0, 0, 6.283); ctx.fill();
+      const hop = Math.abs(Math.sin(t * 2.1 + k.ph)) * 6 * sc;
+      // roupas claras: sem cor, mas com contraste — senão somem no campo cinza
+      const roupa = World.toneChar(k.c, env);
+      const pele = World.toneChar([236, 206, 184], env);
+
+      ctx.fillStyle = U.rgb(env.ambient, 0.22);
+      ctx.beginPath(); ctx.ellipse(k.x, y, 13 * sc, 4 * sc, 0, 0, 6.283); ctx.fill();
+      // pernas
+      ctx.strokeStyle = U.rgb(U.scale(roupa, 0.7));
+      ctx.lineWidth = 3.2 * sc; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(k.x - 3 * sc, y - 16 * sc - hop); ctx.lineTo(k.x - 4 * sc, y - hop * 0.4);
+      ctx.moveTo(k.x + 3 * sc, y - 16 * sc - hop); ctx.lineTo(k.x + 4 * sc, y - hop * 0.4);
+      ctx.stroke();
+      // corpo
       ctx.fillStyle = U.rgb(roupa);
       ctx.beginPath();
-      ctx.ellipse(k.x, y - 26 * sc - hop, 8 * sc, 15 * sc, 0, 0, 6.283);
+      ctx.ellipse(k.x, y - 26 * sc - hop, 8 * sc, 13 * sc, 0, 0, 6.283);
       ctx.fill();
-      ctx.fillStyle = U.rgb(this.tone([228, 194, 168], env, 0.5));
-      ctx.beginPath(); ctx.arc(k.x, y - 48 * sc - hop, 7.5 * sc, 0, 6.283); ctx.fill();
-      ctx.fillStyle = U.rgb(this.tone([70, 56, 50], env, 0.5));
+      // bracinhos para cima (estão brincando)
+      ctx.strokeStyle = U.rgb(roupa);
+      ctx.lineWidth = 2.8 * sc;
       ctx.beginPath();
-      ctx.ellipse(k.x, y - 51 * sc - hop, 7.6 * sc, 5 * sc, 0, Math.PI, 0);
+      ctx.moveTo(k.x - 6 * sc, y - 32 * sc - hop); ctx.lineTo(k.x - 12 * sc, y - 42 * sc - hop);
+      ctx.moveTo(k.x + 6 * sc, y - 32 * sc - hop); ctx.lineTo(k.x + 12 * sc, y - 42 * sc - hop);
+      ctx.stroke();
+      // cabeça
+      ctx.fillStyle = U.rgb(pele);
+      ctx.beginPath(); ctx.arc(k.x, y - 47 * sc - hop, 7.6 * sc, 0, 6.283); ctx.fill();
+      ctx.fillStyle = U.rgb(World.toneChar([92, 74, 62], env));
+      ctx.beginPath();
+      ctx.ellipse(k.x, y - 50 * sc - hop, 7.8 * sc, 5.4 * sc, 0, Math.PI, 0);
       ctx.fill();
     }
   },
