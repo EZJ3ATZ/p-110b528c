@@ -470,10 +470,10 @@ const Game = {
 
     this.rainTimer -= dt;
     if (this.rainTimer <= 0) {
-      // chove mais quando o mundo está frio; nunca chove no auge da conexão
-      const chance = 0.55 * (1 - env.warmth);
-      env.rainTarget = Math.random() < chance ? U.rand(0.45, 0.9) : 0;
-      this.rainTimer = U.rand(26, 55);
+      // longe dela chove quase sempre; perto, o tempo abre. Sem sutileza.
+      const chance = 0.9 * (1 - env.warmth);
+      env.rainTarget = Math.random() < chance ? U.rand(0.4, 0.9) : 0;
+      this.rainTimer = U.rand(22, 45);
     }
     let rt = env.rainTarget || 0;
     if (env.warmth > 0.62) rt = 0;                     // o sol volta quando eles voltam
