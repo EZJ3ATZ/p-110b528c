@@ -502,28 +502,39 @@ class Rival extends Person {
       name: 'alguém', x, z, speed: 132, build: U.rand(0.95, 1.06),
       hair: 'short', pal: paletas[tipo % paletas.length]
     });
-    this.mode = 'chegando';       // chegando → insistindo → saindo
+    this.mode = 'chegando';       // chegando → esperando → insistindo → saindo
     this.timer = U.rand(14, 26);  // se ninguém fizer nada, ele também vai embora
     this.alpha = 0;
     this.morto = false;
+    this.alvoX = null;            // até onde ele caminha (definido pelo roteiro)
   }
 
   update(dt, env, clara, player) {
     const dClara = clara.x - this.x;
     const dPlayer = Math.abs(player.x - this.x);
 
-    // o Matheus chegou perto: ele desiste
-    if (this.mode !== 'saindo' && dPlayer < 135) {
+    // só desiste depois que já está lá conversando — e porque o Matheus veio
+    if (this.mode === 'insistindo' && dPlayer < 145) {
       this.mode = 'saindo';
       this.saiuPor = 'matheus';
     }
 
     switch (this.mode) {
-      case 'chegando':
+      case 'chegando': {
         this.alpha = Math.min(1, this.alpha + dt * 1.2);
-        this.vx = U.clamp(dClara / 90, -1, 1) * this.speed;
+        const alvo = this.alvoX !== null ? this.alvoX : clara.x - Math.sign(dClara) * 78;
+        this.vx = U.clamp((alvo - this.x) / 90, -1, 1) * this.speed;
         this.vz = (clara.z - this.z) * 40;
-        if (Math.abs(dClara) < 78) this.mode = 'insistindo';
+        if (Math.abs(alvo - this.x) < 26) this.mode = 'esperando';
+        break;
+      }
+
+      case 'esperando':
+        this.alpha = Math.min(1, this.alpha + dt * 1.2);
+        this.vx = U.lerp(this.vx, 0, dt * 5);
+        this.gaze = U.lerp(this.gaze, 1, dt * 2);
+        this.lookAt(clara);
+        if (Math.abs(dClara) < 135) this.mode = 'insistindo';
         break;
 
       case 'insistindo':
