@@ -165,6 +165,7 @@ const Game = {
     this.rivals = []; this.rivalTimer = 26; this.rivalCount = 0; this.avisouRival = false;
     this.flor = { cd: 0, dadas: 0 };
     this.wedding = false; this.futuro = false; this.flash = 0; this.shake = 0;
+    this.socoFila = null; this.socoT = 0; this.frasePosSoco = null; this.frasePosSocoT = 0;
     this.dom.florBtn.classList.add('hidden');
     this.cam.x = startX; this.cam.y = 600; this.cam.rise = 0;
     this.cam.scale = this.baseScale();
@@ -540,20 +541,22 @@ const Game = {
   showEndScreen(id) {
     const D = {
       1: {
-        tag: 'final · o altar',
-        quote: 'Algumas conexões transformam uma vida inteira.',
-        body: 'Você atravessou a chuva, o cinza e todo mundo que apareceu no meio do caminho.<br />No fim, era só isso: ficar perto.'
+        tag: 'final verdadeiro · 1 de 2',
+        quote: 'Ela escolheu o Matheus Costa. O original. ✓',
+        body: 'Foram 2 anos, 4 sósias, 1 cheeseburger e 1 certificado plastificado.<br />' +
+          '<span style="opacity:.65">valeu cada soco.</span>'
       },
       2: {
-        tag: 'final · o outro caminho',
-        quote: 'A vida seguiu. Mas o campo nunca mais voltou a ficar colorido.',
-        body: 'Vieram a casa, os anos, as crianças correndo no quintal.<br />' +
-          'E em algumas tardes, sem motivo nenhum, ela para — e lembra de um lugar onde tudo florescia.'
+        tag: 'final ruim · 2 de 2',
+        quote: 'Ela escolheu o Matheus errado.',
+        body: 'A casa é bonita. As crianças até que são fofas.<br />' +
+          'Mas o cheeseburger nunca mais foi o mesmo — e no fundo ela sabe.<br />' +
+          '<span style="opacity:.65">dá pra refazer essa escolha, viu.</span>'
       },
       3: {
         tag: 'final · duas estradas',
-        quote: 'Nem toda história termina junta. Algumas apenas continuam dentro de nós.',
-        body: 'O campo seguiu bonito dos dois lados.<br />As flores que nasceram ali não desapareceram porque vocês se afastaram.'
+        quote: 'Cada um foi pro seu lado.',
+        body: 'O campo continuou bonito. As flores continuaram lá.<br />Mas convenhamos: tinha final melhor.'
       }
     }[id];
     this.dom.endTag.innerHTML = D.tag;
@@ -561,7 +564,9 @@ const Game = {
     this.dom.endBody.innerHTML = D.body;
     // no final triste o botão vira um convite: ainda dá tempo de responder
     const zap = document.getElementById('btnZap');
-    if (zap) zap.innerHTML = id === 1 ? '💬 responder pro Matheus' : '💬 ainda dá tempo';
+    if (zap) zap.innerHTML = id === 1 ? '💬 avisar o Matheus Costa' : '💬 ainda dá tempo de consertar';
+    const again = document.getElementById('btnAgain');
+    if (again) again.textContent = id === 1 ? 'jogar de novo' : 'refazer essa escolha';
     this.dom.end.classList.remove('hidden');
     this.dom.hud.classList.add('hidden');
   },
@@ -625,55 +630,110 @@ const Game = {
   montarBeats() {
     const F = (t) => ({ frase: t });
     return [
-      { esperar: 2.2 },
+      { esperar: 2.0 },
       {
-        cena: 'Ela está ali, do outro lado do campo.<br />Faz meses que vocês não se falam.',
-        a: { txt: 'Ir até ela', ef: { ir: 'clara', conexao: 0.06 } },
-        b: { txt: 'Ficar onde está', ef: { conexao: -0.06, repetir: true, ...F('Você ficou parado. O campo esfriou.') } }
+        cena: 'Dois anos sem se falar. <b>DOIS ANOS.</b><br />Ela está ali. Você tem uma chance.',
+        a: { txt: '🏃 Ir até ela', ef: { ir: 'clara', conexao: 0.08 } },
+        b: { txt: 'Ir andando devagar, com estilo', ef: { ir: 'clara', conexao: 0.08, ...F('Ninguém achou estiloso. Mas tudo bem.') } }
       },
       { irAteEla: true, max: 7 },
 
       {
         quem: 'Clara', cena: '“Você sumiu.”',
-        a: { txt: 'Eu sei. E não tem desculpa.', ef: { conexao: 0.16 } },
-        b: { txt: 'Você também sumiu.', ef: { conexao: -0.07 } }
+        a: { txt: 'Fui comprar pão. Demorei um pouco.', ef: { conexao: 0.14 } },
+        b: { txt: 'Tava treinando pra esse momento.', ef: { conexao: 0.14 } }
+      },
+      { esperar: 1.0 },
+      {
+        quem: 'Clara', cena: '“Matheus, né?<br />Eu conheci um Matheus esses dias.”',
+        pergunta: 'cuidado com a resposta',
+        a: { txt: 'Matheus <b>COSTA</b>. Com sobrenome e tudo.', ef: { conexao: 0.20 } },
+        b: { txt: 'Aquele era a versão de teste.', ef: { conexao: 0.18 } }
+      },
+
+      /* ---------- camada 1: aparece o primeiro sósia ---------- */
+      { esperar: 2.2, rival: true, placa: 'Matheus (não é o Costa)' },
+      {
+        cena: 'Falando nisso: apareceu um Matheus.<br />Não é você. É <b>aquele</b> Matheus.',
+        a: { txt: '👊 Soco', ef: { soco: true, conexao: 0.16 } },
+        b: { txt: '👊 Soco, mas com mais vontade', ef: { soco: true, conexao: 0.20 } }
+      },
+      { esperar: 2.4 },
+
+      {
+        cena: 'O campo floriu de novo. Aproveita.',
+        a: { txt: '🌼 Colher uma flor pra ela', ef: { gesto: 'flor', conexao: 0.16 } },
+        b: { txt: '🌼 Colher o campo inteiro', ef: { gesto: 'flor', conexao: 0.20, ...F('Você arrancou umas 40. Exagerado? Sim.') } }
       },
       { esperar: 1.2 },
       {
-        cena: 'O campo começou a florir de novo em volta de vocês.',
-        a: { txt: '🌼  Colher uma flor e dar pra ela', ef: { gesto: 'flor', conexao: 0.16 } },
-        b: { txt: 'Deixar quieto', ef: { conexao: 0.02 } }
+        quem: 'Clara', cena: '“Tô com fome.”',
+        a: { txt: '🍔 Cheeseburger. Duplo. Agora.', ef: { gesto: 'burger', conexao: 0.20 } },
+        b: { txt: '🍔 Cheeseburger, mas eu como metade', ef: { conexao: -0.05, ...F('Resposta errada. Refaça.') } }
       },
-      { esperar: 1.4 },
+
+      /* ---------- camada 2: agora são três ---------- */
+      { esperar: 1.6, rival: true, trio: true, placa: 'Matheus (genérico)' },
       {
-        quem: 'Clara', cena: '“Ainda dividia um cheeseburger com alguém?”',
-        a: { txt: '🍔  Só com você. Quer um agora?', ef: { gesto: 'burger', conexao: 0.18 } },
-        b: { txt: 'Não lembro mais disso.', ef: { conexao: -0.10 } }
+        cena: 'Agora são <b>três</b> Matheus.<br />Isso já está ficando ridículo.',
+        a: { txt: '👊👊👊 Soco em todos', ef: { soco: true, conexao: 0.22 } },
+        b: { txt: 'Pedir documento dos três', ef: { soco: true, conexao: 0.22, ...F('Nenhum tinha "Costa" no RG. Soco.') } }
       },
-      { esperar: 2.4, rival: true },
+      { esperar: 2.4 },
+
       {
-        cena: 'Apareceu um cara com a sua cara, dizendo ser você.<br />Ela parou, sem saber qual é o verdadeiro.',
-        a: { txt: '👊  Dar um soco nele', ef: { soco: true, conexao: 0.16 } },
-        b: { txt: 'Deixar acontecer', ef: { conexao: -0.20, ...F('Você deixou. Ela também percebe quando você não vem.') } }
+        quem: 'Clara', cena: '“Tá bom, e por que <i>você</i>?”',
+        a: { txt: 'Porque eu sou o original. Os outros são cópia.', ef: { conexao: 0.20 } },
+        b: { txt: 'Porque eu voltei. E os outros não.', ef: { conexao: 0.20 } }
       },
-      { esperar: 2.6 },
-      {
-        quem: 'Clara', cena: '“Por que você voltou?”',
-        a: { txt: 'Porque eu nunca fui embora de verdade.', ef: { conexao: 0.20 } },
-        b: { txt: 'Sei lá. Deu vontade.', ef: { conexao: -0.04 } }
-      },
-      { esperar: 1.2 },
+      { esperar: 1.0 },
       {
         cena: 'Ela está bem do seu lado agora.',
-        a: { txt: '😌  Um beijo na testa dela', ef: { gesto: 'beijo', conexao: 0.20 } },
-        b: { txt: 'Só ficar em silêncio do lado dela', ef: { conexao: 0.06 } }
+        a: { txt: '😌 Beijo na testa', ef: { gesto: 'beijo', conexao: 0.20 } },
+        b: { txt: '😌 Beijo na testa (mas demorado)', ef: { gesto: 'beijo', conexao: 0.24 } }
+      },
+      { esperar: 1.4 },
+
+      /* ---------- o certificado ---------- */
+      {
+        cena: '<b>CERTIFICADO DE AUTENTICIDADE</b><br />' +
+          'Matheus <b>Costa</b> — o original ✓<br />' +
+          '<span style="opacity:.6;font-size:.82em">único, sem cópias, sem versão de teste</span>',
+        pergunta: 'entregar a ela?',
+        a: { txt: '📜 Entregar', ef: { gesto: 'certificado', conexao: 0.25 } },
+        b: { txt: '📜 Entregar plastificado', ef: { gesto: 'certificado', conexao: 0.25 } }
       },
       { esperar: 1.6 },
+
+      /* ---------- ela nega, de brincadeira (o jogo insiste) ---------- */
       {
-        quem: 'Clara', cena: '“Eu pensei em você esse tempo todo.<br />Só que agora sou eu que preciso escolher.”',
-        pergunta: 'clara escolhe',
-        a: { txt: '💛  Perdoar e ficar com ele', ef: { fim: 1 } },
-        b: { txt: '🚶‍♀️  Seguir o outro caminho', ef: { fim: 2 } }
+        quem: 'Clara', cena: '“Não.”',
+        pergunta: 'ela tá de brincadeira. você sabe disso.',
+        a: { txt: 'Como assim NÃO', ef: { negar: 1 } },
+        b: { txt: 'Tá bom. (não tá)', ef: { negar: 1 } }
+      },
+      { esperar: 1.8 },
+      {
+        quem: 'Clara', cena: '“Não mesmo.”',
+        pergunta: 'ela sorriu. contou.',
+        a: { txt: 'Eu vi você sorrindo', ef: { negar: 2 } },
+        b: { txt: 'Vou ficar aqui até você dizer sim', ef: { negar: 2 } }
+      },
+      { esperar: 1.8 },
+      {
+        quem: 'Clara', cena: '“...para.”',
+        pergunta: 'está funcionando',
+        a: { txt: 'Não vou parar não', ef: { negar: 3 } },
+        b: { txt: '🌼🍔😌📜 Fazer tudo de novo, de uma vez', ef: { negar: 3, gesto: 'tudo' } }
+      },
+      { esperar: 2.0 },
+
+      /* ---------- a escolha dela ---------- */
+      {
+        quem: 'Clara', cena: '“Tá. Agora é sério.”<br />“Eu escolho.”',
+        pergunta: 'agora é ela',
+        a: { txt: '💛 Ficar com o Matheus Costa', ef: { fim: 1 } },
+        b: { txt: '🚶‍♀️ Ficar com o outro Matheus', ef: { fim: 2 } }
       }
     ];
   },
@@ -684,6 +744,16 @@ const Game = {
     if (ef.frase) this.showLine({ sym: ef.conexao < 0 ? '🍂' : '💛', txt: ef.frase });
     if (ef.ir === 'clara') this.irAteEla();
     if (ef.soco) this.socar();
+    // ela negando de brincadeira: cada "não" deixa tudo mais exagerado
+    if (ef.negar) {
+      c.smile = 1; c.gazeWant = true; c.gazeTimer = 8;
+      const chuva = ['💛', '🌼', '🍔', '😌', '📜'];
+      for (let i = 0; i < 6 + ef.negar * 4; i++) {
+        Particles.emit('emoji', env.midX + U.rand(-160, 160), World.BAND_Y0 - 40,
+          1, { txt: U.pick(chuva), s: 22 + ef.negar * 3 });
+      }
+      AudioEngine.chime();
+    }
     if (ef.gesto) this.gesto(ef.gesto);
     if (ef.repetir) this.repetirBeat = true;
     if (ef.fim) this.endWith(ef.fim);
@@ -695,31 +765,52 @@ const Game = {
    * Não é briga: é o verdadeiro se impondo — e ela vendo quem ficou.
    */
   socar() {
-    const m = this.matheus, c = this.clara, r = this.rivals[0];
-    if (!r) return;
-    const dir = Math.sign(r.x - m.x) || 1;
+    const m = this.matheus, c = this.clara;
+    if (!this.rivals.length) return;
+    const primeiro = this.rivals[0];
+    const dir = Math.sign(primeiro.x - m.x) || 1;
 
     this.claraScript = null;
     this.autoWalk = null;
-    m.x = r.x - dir * 46;                  // ele já chega junto: o soco é imediato
-    m.z = r.z;
+    m.x = primeiro.x - dir * 46;            // ele já chega junto: o soco é imediato
+    m.z = primeiro.z;
     m.dir = dir; m.faceDir = dir;
     m.gaze = 0; m.slump = 0;
     m.vx = dir * 60;
 
-    r.levarSoco(dir);
-    this.shake = 0.55;                     // a câmera treme
-
-    const px = (m.x + r.x) / 2, py = World.bandY(r.z) - 74;
-    Particles.emit('emoji', px, py, 1, { txt: '👊', s: 34 });
-    Particles.emit('burst', px, py, 26, { c: [255, 232, 200] });
-    for (let i = 0; i < 8; i++) Particles.emit('spark', px, py, 1, { c: [255, 244, 220] });
-    AudioEngine.impacto();
+    // fila de socos: um atrás do outro, processada no update (setTimeout não
+    // é confiável — some se a aba dorme e não acompanha o relógio do jogo)
+    this.socoFila = this.rivals.slice();
+    this.socoDir = dir;
+    this.socoT = 0;
+    this.socoTotal = this.rivals.length;
+    this.baterProximo();
 
     // ela vira para o verdadeiro
     c.gazeWant = true; c.gazeTimer = 7; c.smile = 1;
     c.mode = 'walk_with'; c.decision = 0.1;
-    setTimeout(() => this.showLine({ sym: '👊', txt: 'Só existe um. E foi o que ficou.' }), 900);
+  },
+
+  /** tira o próximo sósia da fila e acerta */
+  baterProximo() {
+    const r = this.socoFila && this.socoFila.shift();
+    if (!r) return;
+    const dir = this.socoDir;
+    r.levarSoco(dir);
+    this.shake = 0.55;
+    const px = r.x - dir * 24, py = World.bandY(r.z) - 74;
+    Particles.emit('emoji', px, py, 1, { txt: '👊', s: 34 });
+    Particles.emit('burst', px, py, 26, { c: [255, 232, 200] });
+    for (let k = 0; k < 8; k++) Particles.emit('spark', px, py, 1, { c: [255, 244, 220] });
+    AudioEngine.impacto();
+    this.socoT = 0;
+
+    if (!this.socoFila.length) {
+      this.frasePosSoco = this.socoTotal > 1
+        ? 'Três a menos. Sobrou o Costa.'
+        : 'Só existe um Matheus aqui. E é o Costa.';
+      this.frasePosSocoT = 0.9;
+    }
   },
 
   /** um gesto: ele chega junto, o símbolo sobe e ela responde no rosto */
@@ -727,17 +818,23 @@ const Game = {
     const m = this.matheus, c = this.clara;
     const mid = (m.x + c.x) / 2, y = World.bandY(c.z) - 60;
     const cfg = {
-      flor:   { txt: '🌼', cor: [255, 226, 170] },
-      burger: { txt: '🍔', cor: [255, 208, 140] },
-      beijo:  { txt: '💛', cor: [255, 190, 200] }
-    }[tipo];
+      flor:        { txt: '🌼', cor: [255, 226, 170] },
+      burger:      { txt: '🍔', cor: [255, 208, 140] },
+      beijo:       { txt: '💛', cor: [255, 190, 200] },
+      certificado: { txt: '📜', cor: [255, 236, 196] },
+      tudo:        { txt: '🌼', cor: [255, 214, 180] }
+    }[tipo] || { txt: '💛', cor: [255, 214, 180] };
 
     this.irAte(c.x - Math.sign(c.x - m.x) * 62);
     m.holding = null;
     c.gazeWant = true; c.gazeTimer = 6; c.smile = 1; c.decision = 0.1; c.mode = 'walk_with';
     m.gaze = 1; m.lookAt(c);
 
-    for (let i = 0; i < 5; i++) Particles.emit('emoji', mid, y, 1, { txt: cfg.txt, s: 26 });
+    const qtd = tipo === 'tudo' ? 18 : 5;
+    for (let i = 0; i < qtd; i++) {
+      const t = tipo === 'tudo' ? U.pick(['🌼', '🍔', '😌', '📜', '💛']) : cfg.txt;
+      Particles.emit('emoji', mid, y, 1, { txt: t, s: 26 });
+    }
     Particles.emit('burst', mid, y, 20, { c: cfg.cor });
     for (let i = 0; i < 10; i++) Particles.emit('petal', mid + U.rand(-70, 70), y - 40, 1);
     AudioEngine.chime();
@@ -753,12 +850,18 @@ const Game = {
     // 1) espera curta
     if (b.esperar !== undefined) {
       if (this.beatT === dt && b.rival) {
-        // o falso entra pelo lado OPOSTO ao Matheus e para ao lado dela:
-        // fica sempre "matheus — clara — falso", claro de ler na tela
+        // os sósias entram pelo lado OPOSTO ao Matheus e param ao lado dela:
+        // fica sempre "matheus — clara — falso(s)", claro de ler na tela
         const lado = (Math.sign(c.x - m.x) || 1);
-        const r = new Rival(c.x + lado * 520, c.z, this.rivalCount++);
-        r.alvoX = c.x + lado * 92;
-        this.rivals.push(r);
+        const quantos = b.trio ? 3 : 1;
+        for (let i = 0; i < quantos; i++) {
+          // espalhados em x e em profundidade, senão as plaquinhas se sobrepõem
+          const r = new Rival(c.x + lado * (520 + i * 150),
+            U.clamp(c.z + (i - 1) * 0.16, 0.15, 0.9), this.rivalCount++);
+          r.alvoX = c.x + lado * (95 + i * 125);
+          if (b.placa) r.nome = i === 0 ? b.placa : ['Matheus (cópia)', 'Matheus (versão 2)', 'Matheus (de teste)'][i % 3];
+          this.rivals.push(r);
+        }
       }
       // se o falso está entrando em cena, espera ele chegar ao lado dela
       if (b.rival) {
@@ -975,6 +1078,19 @@ const Game = {
     }
 
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 1.6);
+
+    /* ---- fila de socos e a frase que vem depois ---- */
+    if (this.socoFila && this.socoFila.length) {
+      this.socoT += dt;
+      if (this.socoT > 0.38) this.baterProximo();
+    }
+    if (this.frasePosSocoT > 0) {
+      this.frasePosSocoT -= dt;
+      if (this.frasePosSocoT <= 0) {
+        this.showLine({ sym: '👊', txt: this.frasePosSoco });
+        this.frasePosSoco = null;
+      }
+    }
 
     /* ---- botão da flor: só aparece quando ela pode receber ---- */
     const podeDar = this.state === 'playing' && !!m.holding && Math.abs(c.x - m.x) < 190;
