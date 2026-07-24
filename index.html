@@ -95,10 +95,21 @@
 </div>
 
 <!-- ordem importa: world define os utilitários usados pelos outros -->
-<script src="world.js?v=6"></script>
-<script src="particles.js?v=6"></script>
-<script src="characters.js?v=6"></script>
-<script src="audio.js?v=6"></script>
-<script src="game.js?v=6"></script>
+<!--
+  Carregamento com "carimbo" de tempo: o GitHub Pages guarda cache por vários
+  minutos e quem já abriu antes continuava vendo a versão velha do jogo.
+  Assim cada visita busca sempre os arquivos atuais (async=false mantém a ordem).
+-->
+<script>
+  (function () {
+    var carimbo = Date.now();
+    ['world', 'particles', 'characters', 'audio', 'game'].forEach(function (nome) {
+      var s = document.createElement('script');
+      s.src = nome + '.js?t=' + carimbo;
+      s.async = false;
+      document.head.appendChild(s);
+    });
+  })();
+</script>
 </body>
 </html>
