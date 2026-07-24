@@ -87,6 +87,57 @@ canvas {
 }
 #lookBtn:active { color: var(--ink); background: rgba(255, 226, 170, 0.16); }
 
+/* ------------------------------------------------------ cartão de escolha */
+#choiceCard {
+  position: absolute;
+  left: 50%; bottom: max(26px, calc(env(safe-area-inset-bottom) + 26px));
+  transform: translateX(-50%);
+  width: min(560px, 92vw);
+  padding: 22px 20px 20px;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(10, 14, 28, .58), rgba(8, 11, 22, .82));
+  border: 1px solid rgba(238, 242, 248, .18);
+  border-radius: 22px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+  z-index: 24;
+  animation: cardIn .7s cubic-bezier(.2, .9, .3, 1) both;
+}
+@keyframes cardIn { from { opacity: 0; transform: translate(-50%, 26px) } to { opacity: 1; transform: translate(-50%, 0) } }
+
+#choiceCard .cena {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(15px, 4.4vw, 19px);
+  line-height: 1.5;
+  color: #f4efe6;
+  margin-bottom: 14px;
+}
+#choiceCard .pergunta {
+  font-size: 11.5px;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: rgba(238, 242, 248, .40);
+  margin-bottom: 16px;
+}
+#choiceCard .opcoes { display: flex; flex-direction: column; gap: 10px; }
+#choiceCard button {
+  width: 100%;
+  padding: 17px 16px;
+  font-family: var(--serif);
+  font-size: clamp(15px, 4.2vw, 17px);
+  letter-spacing: .04em;
+  color: var(--ink);
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(238, 242, 248, .22);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background .35s ease, border-color .35s ease, transform .2s ease;
+}
+#choiceCard button:hover { background: rgba(255, 214, 158, .14); border-color: rgba(255, 214, 158, .5); }
+#choiceCard button:active { transform: scale(.98); }
+
 /* --------------------------------------------------------- botão da flor */
 #florBtn {
   position: absolute;
