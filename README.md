@@ -24,11 +24,14 @@ e a trilha é sintetizada ao vivo pela Web Audio API.
 **Computador:** setas ou WASD para caminhar, **espaço** para olhar para ela,
 **E** para dar a flor. `P` pausa · `M` música · `F` tela cheia.
 
-- **Chegue perto** — é o que muda tudo.
-- **Colha flores** (ele pega sozinho ao caminhar sobre elas) e **entregue** para ela.
-- **Alguém sempre aparece** para puxar conversa com ela. Enquanto ele está lá,
-  nada avança. Chegue perto que ele desiste e vai embora.
-- Se der tudo certo, o final é um casamento.
+São **oito escolhas**, uma por toque, em uns dois minutos:
+
+- Ela fala, você responde.
+- Entre as falas vêm os gestos: **flor**, **cheeseburger**, **beijo na testa**.
+- No meio do caminho **alguém aparece** e puxa conversa com ela — se você não
+  for até lá, o campo esfria.
+- A última escolha é **dela**: perdoar e ficar, ou seguir o outro caminho.
+  Uma leva ao casamento; a outra, à vida que veio depois.
 
 ## Arquivos
 
