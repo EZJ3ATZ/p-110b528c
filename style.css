@@ -244,6 +244,19 @@ canvas {
   z-index: 30;
   animation: fadeIn 1.4s ease both;
 }
+
+/* Na tela de final a cena precisa continuar visível: o texto desce para o
+   rodapé e o escurecimento vira só um degradê de baixo para cima. */
+#screenEnd {
+  place-items: end center;
+  padding-bottom: max(26px, env(safe-area-inset-bottom));
+  background: linear-gradient(180deg,
+    rgba(6, 9, 20, 0) 0%, rgba(6, 9, 20, .18) 38%, rgba(6, 9, 20, .80) 72%, rgba(6, 9, 20, .93) 100%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+#screenEnd .screen-inner { padding-bottom: 6px; }
+#screenEnd .quote, #screenEnd .body { text-shadow: 0 2px 20px rgba(0, 0, 0, .85); }
 .screen.out { animation: fadeOut .8s ease both; }
 
 @keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
@@ -335,6 +348,25 @@ button.ghost {
   border-color: transparent;
 }
 button.ghost:hover { color: var(--ink); border-color: var(--line); }
+
+/* botão de responder no WhatsApp (é um link, mas parece botão) */
+a.big.zap {
+  display: inline-block;
+  text-decoration: none;
+  color: #eafff0;
+  background: rgba(37, 211, 102, .16);
+  border-color: rgba(37, 211, 102, .55);
+  animation: rise 1.8s .85s ease both, zapPulse 2.6s 2s ease-in-out infinite;
+}
+a.big.zap:hover {
+  background: rgba(37, 211, 102, .28);
+  border-color: rgba(37, 211, 102, .85);
+  color: #fff;
+}
+@keyframes zapPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0) }
+  50%      { box-shadow: 0 0 26px 2px rgba(37, 211, 102, .22) }
+}
 
 /* --------------------------------------------------------------- ajustes */
 /* ---------------------------------------------------- celular em primeiro */
