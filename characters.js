@@ -508,6 +508,7 @@ class Rival extends Person {
     this.alvoX = null;            // até onde ele caminha (definido pelo roteiro)
     this.knock = 0;               // deslocamento do soco
     this.label = 1;               // opacidade da plaquinha com o nome
+    this.nome = 'Matheus (não é o Costa)';
   }
 
   /** leva o soco: voa para trás e some */
@@ -531,7 +532,7 @@ class Rival extends Person {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = '600 ' + (11 * s).toFixed(1) + 'px system-ui, sans-serif';
-    const txt = 'Matheus (falso)';
+    const txt = this.nome;
     const w = ctx.measureText(txt).width + 14 * s;
     // balãozinho escuro
     ctx.fillStyle = 'rgba(14,16,26,0.72)';
