@@ -493,31 +493,64 @@ class Clara extends Person {
    ========================================================================== */
 class Rival extends Person {
   constructor(x, z, tipo) {
-    const paletas = [
-      { skin: [222, 186, 158], hair: [58, 48, 44], topCold: [96, 96, 104], topWarm: [116, 112, 118], bottom: [62, 62, 70] },
-      { skin: [206, 164, 132], hair: [36, 32, 32], topCold: [88, 100, 108], topWarm: [104, 116, 124], bottom: [56, 60, 66] },
-      { skin: [238, 202, 176], hair: [92, 70, 52], topCold: [104, 92, 96], topWarm: [124, 110, 112], bottom: [70, 64, 70] }
-    ];
+    // é uma cópia do Matheus — de propósito. As roupas são iguais, só sem cor.
     super({
-      name: 'alguém', x, z, speed: 132, build: U.rand(0.95, 1.06),
-      hair: 'short', pal: paletas[tipo % paletas.length]
+      name: 'Matheus (falso)', x, z, speed: 132, build: 1.02, hair: 'short',
+      pal: {
+        skin: [212, 178, 152], hair: [52, 40, 36],
+        topCold: [78, 84, 96], topWarm: [82, 100, 110], bottom: [54, 56, 68]
+      }
     });
-    this.mode = 'chegando';       // chegando → esperando → insistindo → saindo
+    this.mode = 'chegando';       // chegando → esperando → insistindo → apanhando → saindo
     this.timer = U.rand(14, 26);  // se ninguém fizer nada, ele também vai embora
     this.alpha = 0;
     this.morto = false;
     this.alvoX = null;            // até onde ele caminha (definido pelo roteiro)
+    this.knock = 0;               // deslocamento do soco
+    this.label = 1;               // opacidade da plaquinha com o nome
+  }
+
+  /** leva o soco: voa para trás e some */
+  levarSoco(dir) {
+    this.mode = 'apanhando';
+    this.knockDir = dir;
+    this.knock = 0;
+    this.gaze = 0;
+    this.saiuPor = 'matheus';
+  }
+
+  /** plaquinha "Matheus (falso)" flutuando sobre a cabeça */
+  drawLabel(ctx, env) {
+    if (this.label <= 0.01 || this.alpha <= 0.05) return;
+    const s = World.depthScale(this.z) * this.build;
+    const y = World.bandY(this.z) - 104 * s + Math.sin(World.time * 2 + 1) * 2;
+    const a = this.label * this.alpha;
+
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '600 ' + (11 * s).toFixed(1) + 'px system-ui, sans-serif';
+    const txt = 'Matheus (falso)';
+    const w = ctx.measureText(txt).width + 14 * s;
+    // balãozinho escuro
+    ctx.fillStyle = 'rgba(14,16,26,0.72)';
+    ctx.beginPath();
+    const h = 17 * s, r = 6 * s;
+    ctx.moveTo(this.x - w / 2 + r, y - h / 2);
+    ctx.arcTo(this.x + w / 2, y - h / 2, this.x + w / 2, y + h / 2, r);
+    ctx.arcTo(this.x + w / 2, y + h / 2, this.x - w / 2, y + h / 2, r);
+    ctx.arcTo(this.x - w / 2, y + h / 2, this.x - w / 2, y - h / 2, r);
+    ctx.arcTo(this.x - w / 2, y - h / 2, this.x + w / 2, y - h / 2, r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,196,196,0.92)';
+    ctx.fillText(txt, this.x, y + 0.5 * s);
+    ctx.restore();
   }
 
   update(dt, env, clara, player) {
     const dClara = clara.x - this.x;
-    const dPlayer = Math.abs(player.x - this.x);
-
-    // só desiste depois que já está lá conversando — e porque o Matheus veio
-    if (this.mode === 'insistindo' && dPlayer < 145) {
-      this.mode = 'saindo';
-      this.saiuPor = 'matheus';
-    }
 
     switch (this.mode) {
       case 'chegando': {
@@ -546,9 +579,22 @@ class Rival extends Person {
         if (this.timer <= 0) { this.mode = 'saindo'; this.saiuPor = 'tempo'; }
         break;
 
+      // levou o soco: voa para trás, gira e some
+      case 'apanhando':
+        this.knock += dt;
+        this.vx = this.knockDir * 300 * Math.max(0, 1 - this.knock * 1.1);
+        this.vz = 0;
+        this.gaze = 0;
+        this.label = Math.max(0, this.label - dt * 3);
+        this.slump = Math.min(1, this.slump + dt * 4);
+        if (this.knock > 0.35) this.alpha -= dt * 1.5;
+        if (this.alpha <= 0) this.morto = true;
+        break;
+
       case 'saindo':
         this.gaze = U.lerp(this.gaze, 0, dt * 3);
         this.vx = U.lerp(this.vx, (Math.sign(this.x - clara.x) || 1) * 120, dt * 3);
+        this.label = Math.max(0, this.label - dt * 1.5);
         this.alpha -= dt * 0.55;
         if (this.alpha <= 0) this.morto = true;
         break;
