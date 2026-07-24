@@ -120,10 +120,11 @@ const Game = {
     this.matheus = new Matheus(startX);
     this.clara = new Clara(startX + 620);   // começam longe: é assim que ficou
 
+    // começa no fim de tarde cinza, com garoa: o mundo já está esperando por ela
     Object.assign(this.env, {
-      t: 0, dayT: 0.30, dayTarget: null,
-      connection: 0.06, warmth: 0.06, mutual: 0,
-      wind: 0.6, rain: 0, night: 0, light: 1
+      t: 0, dayT: 0.66, dayTarget: null,
+      connection: 0.05, warmth: 0.05, mutual: 0,
+      wind: 0.75, rain: 0.30, rainTarget: 0.45, night: 0, light: 1
     });
     this.closeTime = 0; this.divergeTime = 0; this.patience = 120;
     this.stillTime = 0; this.rainTimer = 34; this.wasMutual = false;
