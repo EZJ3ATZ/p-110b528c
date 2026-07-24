@@ -27,6 +27,10 @@ class Person {
     this.sparkTimer = 0;
     this.pal = cfg.pal;           // paleta de cores do personagem
     this.hair = cfg.hair;         // 'short' | 'long'
+    this.wedding = false;         // roupa de casamento (final feliz)
+    this.slump = 0;               // 0..1 — ombros caídos, cabeça baixa
+    this.holding = null;          // flor na mão: {c:[r,g,b]}
+    this.alpha = 1;               // usado por quem entra e sai de cena
   }
 
   /* ---------------- física comum ---------------- */
@@ -65,20 +69,28 @@ class Person {
     const y = World.bandY(this.z);
     const s = World.depthScale(this.z) * this.build;
     const P = this.pal;
-    const cold = (1 - env.warmth);
 
     // as roupas perdem cor quando o mundo esfria — mas eles nunca somem no escuro
     const skin = World.toneChar(P.skin, env);
     const hairC = World.toneChar(P.hair, env);
-    const top = World.toneChar(U.mix(P.topCold, P.topWarm, env.warmth), env);
-    const bottom = World.toneChar(P.bottom, env);
+    let top = World.toneChar(U.mix(P.topCold, P.topWarm, env.warmth), env);
+    let bottom = World.toneChar(P.bottom, env);
+    if (this.wedding && P.wed) {                    // no casamento a roupa muda
+      top = World.toneChar(P.wed.top, env);
+      bottom = World.toneChar(P.wed.bottom, env);
+    }
     const dark = U.scale(top, 0.72);
+
+    ctx.save();
+    if (this.alpha < 1) ctx.globalAlpha = this.alpha;
 
     const bob = Math.sin(this.walkPhase * 2) * 1.5 * s * this.moveAmt;
     const feetY = y;
+    // ombros caídos e cabeça baixa quando o mundo (e ele) está mal
+    const sl = this.slump * s;
     const hipY = y - (this.sitting ? 26 : 40) * s + bob;
-    const shoY = y - (this.sitting ? 50 : 68) * s + bob;
-    const headY = y - (this.sitting ? 58 : 84) * s + bob;
+    const shoY = y - (this.sitting ? 50 : 68) * s + bob + sl * 3;
+    const headY = y - (this.sitting ? 58 : 84) * s + bob + sl * 5;
     const headR = 9.6 * s;
 
     // ---------- sombra ----------
@@ -233,6 +245,60 @@ class Person {
       ctx.beginPath(); ctx.arc(hx + 5 * s + ex, headY + headR * 0.28, 2 * s, 0, 6.283); ctx.fill();
     }
 
+    // ---------- véu / gravata do casamento ----------
+    if (this.wedding) {
+      if (this.hair === 'long') {
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath();
+        ctx.moveTo(hx - headR * 1.1, headY - headR * 0.5);
+        ctx.quadraticCurveTo(hx - headR * 2.0, headY + 22 * s, hx - headR * 0.9, headY + 34 * s);
+        ctx.lineTo(hx + headR * 0.9, headY + 34 * s);
+        ctx.quadraticCurveTo(hx + headR * 2.0, headY + 22 * s, hx + headR * 1.1, headY - headR * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = U.rgb(World.toneChar([250, 224, 232], env));   // coroa de flores
+        for (let i = 0; i < 5; i++) {
+          const a = Math.PI + i * 0.42;
+          ctx.beginPath();
+          ctx.arc(hx + Math.cos(a) * headR * 0.95, headY + Math.sin(a) * headR * 0.95, 1.7 * s, 0, 6.283);
+          ctx.fill();
+        }
+      } else {
+        ctx.fillStyle = U.rgb(World.toneChar([235, 238, 245], env));   // camisa
+        ctx.fillRect(hx - 2.2 * s, shoY + 1 * s, 4.4 * s, 12 * s);
+        ctx.fillStyle = U.rgb(World.toneChar([146, 62, 74], env));     // gravata
+        ctx.beginPath();
+        ctx.moveTo(hx, shoY + 3 * s);
+        ctx.lineTo(hx + 1.8 * s, shoY + 7 * s);
+        ctx.lineTo(hx, shoY + 13 * s);
+        ctx.lineTo(hx - 1.8 * s, shoY + 7 * s);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    // ---------- flor na mão ----------
+    if (this.holding) {
+      const fx = this.x + (9 * s - asw) * (this.dir >= 0 ? 1 : -1);
+      const fy = shoY + 26 * s;
+      ctx.strokeStyle = U.rgb(World.toneChar([90, 128, 70], env));
+      ctx.lineWidth = 1.4 * s;
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.lineTo(fx, fy - 11 * s);
+      ctx.stroke();
+      ctx.fillStyle = U.rgb(World.toneChar(this.holding.c, env));
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * 6.283;
+        ctx.beginPath();
+        ctx.ellipse(fx + Math.cos(a) * 2.6 * s, fy - 11 * s + Math.sin(a) * 2.6 * s,
+          2.2 * s, 1.7 * s, a, 0, 6.283);
+        ctx.fill();
+      }
+      ctx.fillStyle = U.rgb(World.toneChar([250, 210, 100], env));
+      ctx.beginPath(); ctx.arc(fx, fy - 11 * s, 1.6 * s, 0, 6.283); ctx.fill();
+    }
+
     // brilho suave em volta de quem olha (quase imperceptível, mas está lá)
     if (this.gaze > 0.3) {
       ctx.save();
@@ -245,6 +311,8 @@ class Person {
       ctx.fillRect(hx - 46 * s, headY - 46 * s, 92 * s, 92 * s);
       ctx.restore();
     }
+
+    ctx.restore();
   }
 }
 
@@ -257,7 +325,8 @@ class Matheus extends Person {
       name: 'Matheus', x, z: 0.55, speed: 172, build: 1.02, hair: 'short',
       pal: {
         skin: [226, 184, 152], hair: [52, 40, 36],
-        topCold: [72, 88, 110], topWarm: [86, 126, 140], bottom: [56, 58, 74]
+        topCold: [72, 88, 110], topWarm: [86, 126, 140], bottom: [56, 58, 74],
+        wed: { top: [38, 42, 58], bottom: [30, 33, 46] }        // terno
       }
     });
     this.input = { ax: 0, az: 0, look: false };
@@ -267,6 +336,11 @@ class Matheus extends Person {
     const acc = this.input;
     this.vx = U.lerp(this.vx, acc.ax * this.speed, dt * 9);
     this.vz = U.lerp(this.vz, acc.az * 0.46, dt * 9);
+
+    // quando está tudo mal, ele anda cabisbaixo — e mais devagar
+    const baixo = U.clamp(U.map(env.connection, 0.30, 0.03, 0, 1), 0, 1);
+    this.slump = U.lerp(this.slump, this.sitting ? 0 : baixo, dt * 0.8);
+    this.vx *= (1 - this.slump * 0.18);
 
     // olhar: segurar o botão. Ele só consegue olhar de fato se ela estiver por perto.
     const d = Math.abs(other.x - this.x);
@@ -291,13 +365,15 @@ class Clara extends Person {
       name: 'Clara', x, z: 0.45, speed: 150, build: 0.96, hair: 'long',
       pal: {
         skin: [238, 200, 172], hair: [118, 62, 46],
-        topCold: [122, 104, 118], topWarm: [196, 122, 142], bottom: [88, 74, 96]
+        topCold: [122, 104, 118], topWarm: [196, 122, 142], bottom: [88, 74, 96],
+        wed: { top: [248, 246, 242], bottom: [240, 238, 234] }   // vestido
       }
     });
     this.mode = 'wander';
     this.decision = 1.2;
     this.gazeTimer = 2;
     this.gazeWant = false;
+    this.gazeTarget = 'player';   // para quem ela está olhando: 'player' ou 'rival'
     this.target = x;
     this.targetZ = this.z;
     this.leaveDir = 1;
@@ -308,9 +384,12 @@ class Clara extends Person {
   leave(dir) { this.mode = 'leaving'; this.leaveDir = dir; this.gazeWant = false; }
   sitDown(dir) { this.mode = 'sit'; this.sitting = true; this.dir = dir; }
 
-  update(dt, env, player) {
+  update(dt, env, player, rival) {
     const dx = player.x - this.x;
     const d = Math.abs(dx);
+
+    // alguém chegou e puxou conversa: ela para e dá atenção a ele
+    const distraida = rival && Math.abs(rival.x - this.x) < 150 && rival.mode !== 'saindo';
 
     /* ---------------- decisões ---------------- */
     if (this.mode !== 'leaving' && this.mode !== 'sit') {
@@ -367,10 +446,22 @@ class Clara extends Person {
       default: want = 0;
     }
 
+    if (distraida) want = 0;      // enquanto ele fala com ela, ela não anda
+
     this.vx = U.lerp(this.vx, want * this.speed, dt * 5);
     this.vz = U.lerp(this.vz, wantZ * 0.4, dt * 4);
 
     /* ---------------- o olhar dela ---------------- */
+    if (distraida) {
+      // ela está olhando para o outro — o olhar do Matheus não encontra o dela
+      this.gazeTarget = 'rival';
+      this.gaze = U.lerp(this.gaze, 1, dt * 2);
+      this.lookAt(rival);
+      this.step(dt, env);
+      return;
+    }
+    this.gazeTarget = 'player';
+
     if (this.mode === 'leaving') {
       this.gazeWant = false;
     } else {
@@ -389,6 +480,68 @@ class Clara extends Person {
     if (this.gaze > 0.05) this.lookAt(player); else this.faceDir = undefined;
     if (this.mode === 'sit') this.gaze = 0;
 
+    this.step(dt, env);
+  }
+}
+
+/* ==========================================================================
+   Rival — "alguém sempre aparece quando você demora"
+   --------------------------------------------------------------------------
+   Não é um vilão: é só mais uma pessoa querendo a atenção dela. Enquanto ele
+   está por perto, ela olha para ele e a conexão para de crescer.
+   Basta o Matheus chegar perto que ele desiste e vai embora.
+   ========================================================================== */
+class Rival extends Person {
+  constructor(x, z, tipo) {
+    const paletas = [
+      { skin: [222, 186, 158], hair: [58, 48, 44], topCold: [96, 96, 104], topWarm: [116, 112, 118], bottom: [62, 62, 70] },
+      { skin: [206, 164, 132], hair: [36, 32, 32], topCold: [88, 100, 108], topWarm: [104, 116, 124], bottom: [56, 60, 66] },
+      { skin: [238, 202, 176], hair: [92, 70, 52], topCold: [104, 92, 96], topWarm: [124, 110, 112], bottom: [70, 64, 70] }
+    ];
+    super({
+      name: 'alguém', x, z, speed: 132, build: U.rand(0.95, 1.06),
+      hair: 'short', pal: paletas[tipo % paletas.length]
+    });
+    this.mode = 'chegando';       // chegando → insistindo → saindo
+    this.timer = U.rand(14, 26);  // se ninguém fizer nada, ele também vai embora
+    this.alpha = 0;
+    this.morto = false;
+  }
+
+  update(dt, env, clara, player) {
+    const dClara = clara.x - this.x;
+    const dPlayer = Math.abs(player.x - this.x);
+
+    // o Matheus chegou perto: ele desiste
+    if (this.mode !== 'saindo' && dPlayer < 135) {
+      this.mode = 'saindo';
+      this.saiuPor = 'matheus';
+    }
+
+    switch (this.mode) {
+      case 'chegando':
+        this.alpha = Math.min(1, this.alpha + dt * 1.2);
+        this.vx = U.clamp(dClara / 90, -1, 1) * this.speed;
+        this.vz = (clara.z - this.z) * 40;
+        if (Math.abs(dClara) < 78) this.mode = 'insistindo';
+        break;
+
+      case 'insistindo':
+        this.vx = U.lerp(this.vx, 0, dt * 6);
+        this.vz = 0;
+        this.gaze = U.lerp(this.gaze, 1, dt * 2.5);
+        this.lookAt(clara);
+        this.timer -= dt;
+        if (this.timer <= 0) { this.mode = 'saindo'; this.saiuPor = 'tempo'; }
+        break;
+
+      case 'saindo':
+        this.gaze = U.lerp(this.gaze, 0, dt * 3);
+        this.vx = U.lerp(this.vx, (Math.sign(this.x - clara.x) || 1) * 120, dt * 3);
+        this.alpha -= dt * 0.55;
+        if (this.alpha <= 0) this.morto = true;
+        break;
+    }
     this.step(dt, env);
   }
 }
