@@ -86,6 +86,7 @@ const World = {
   RIVER_Y0: 470, RIVER_Y1: 534,   // riacho, atrás da faixa caminhável
   BAND_Y0: 552, BAND_Y1: 782,     // faixa onde os personagens andam
   DAY_LENGTH: 320,  // segundos de um ciclo dia->noite->dia completo
+  ALTAR_X: 4600,    // a clareira onde acontece o casamento (final feliz)
 
   /* ----- conteúdo gerado ----- */
   trees: [], bushes: [], tufts: [], stones: [], flowers: [], memories: [], clouds: [], stars: [],
@@ -166,6 +167,12 @@ const World = {
 
     // Um punhado de flores já existe desde o começo — o mundo nunca esteve morto.
     for (let i = 0; i < 80; i++) this.plantFlower(U.rand(0, this.WIDTH), U.rand(0, 1), 1);
+
+    // abre uma clareira em volta do altar (o casamento precisa de espaço)
+    const perto = o => Math.abs(o.x - this.ALTAR_X) < 300;
+    this.trees = this.trees.filter(t => !(perto(t) && t.z > 0.2));
+    this.bushes = this.bushes.filter(b => !perto(b));
+    this.stones = this.stones.filter(s => !perto(s));
   },
 
   // pontos de folhagem de uma árvore (gerados uma vez, reaproveitados)
@@ -708,6 +715,94 @@ const World = {
     ctx.fillStyle = U.rgb(dark);
     ctx.fillRect(x - 28 * s, y - 34 * s, 3 * s, 16 * s);
     ctx.fillRect(x + 25 * s, y - 34 * s, 3 * s, 16 * s);
+  },
+
+  /* ======================================================================
+     O ALTAR — só existe no final feliz
+     ====================================================================== */
+  drawAltar(ctx, env) {
+    const X = this.ALTAR_X;
+    const yBase = this.bandY(0.60);
+    const branco = this.tone([250, 248, 244], env, 0.3);
+    const madeira = this.tone([196, 176, 150], env, 0.4);
+    const folha = this.tone([96, 150, 78], env, 0.4);
+
+    /* --- convidados sentados nos dois lados, atrás --- */
+    for (let lado = -1; lado <= 1; lado += 2) {
+      for (let fila = 0; fila < 3; fila++) {
+        const z = 0.16 + fila * 0.10;
+        const y = this.bandY(z), s = this.depthScale(z) * 0.82;
+        for (let i = 0; i < 4; i++) {
+          const x = X + lado * (150 + i * 46) + U.hash(fila * 9 + i + lado * 3) * 12;
+          // banco
+          ctx.fillStyle = U.rgb(madeira, 0.9);
+          ctx.fillRect(x - 20 * s, y - 12 * s, 40 * s, 4 * s);
+          // pessoa (silhueta simples)
+          const cor = this.tone([104, 100, 112], env, 0.5);
+          ctx.fillStyle = U.rgb(cor);
+          ctx.beginPath();
+          ctx.ellipse(x, y - 26 * s, 6.5 * s, 12 * s, 0, 0, 6.283);
+          ctx.fill();
+          ctx.fillStyle = U.rgb(this.tone([226, 190, 162], env, 0.5));
+          ctx.beginPath();
+          ctx.arc(x, y - 42 * s, 5.4 * s, 0, 6.283);
+          ctx.fill();
+        }
+      }
+    }
+
+    /* --- tapete --- */
+    ctx.fillStyle = U.rgb(this.tone([236, 226, 214], env, 0.35), 0.85);
+    ctx.beginPath();
+    ctx.moveTo(X - 34, this.bandY(0.32));
+    ctx.lineTo(X + 34, this.bandY(0.32));
+    ctx.lineTo(X + 82, this.bandY(1.0));
+    ctx.lineTo(X - 82, this.bandY(1.0));
+    ctx.closePath();
+    ctx.fill();
+
+    /* --- arco de flores --- */
+    const topo = yBase - 210, larg = 96;
+    ctx.strokeStyle = U.rgb(branco);
+    ctx.lineWidth = 9;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(X - larg, yBase);
+    ctx.quadraticCurveTo(X - larg, topo, X, topo - 16);
+    ctx.quadraticCurveTo(X + larg, topo, X + larg, yBase);
+    ctx.stroke();
+
+    // flores e folhas cobrindo o arco
+    for (let i = 0; i <= 42; i++) {
+      const t = i / 42;
+      // ponto na curva composta (duas quadráticas espelhadas)
+      let px, py;
+      if (t < 0.5) {
+        const u = t * 2;
+        px = (1 - u) * (1 - u) * (X - larg) + 2 * (1 - u) * u * (X - larg) + u * u * X;
+        py = (1 - u) * (1 - u) * yBase + 2 * (1 - u) * u * topo + u * u * (topo - 16);
+      } else {
+        const u = (t - 0.5) * 2;
+        px = (1 - u) * (1 - u) * X + 2 * (1 - u) * u * (X + larg) + u * u * (X + larg);
+        py = (1 - u) * (1 - u) * (topo - 16) + 2 * (1 - u) * u * topo + u * u * yBase;
+      }
+      const h = U.hash(i * 3.7);
+      ctx.fillStyle = U.rgb(h > 0.45 ? this.tone([250, 214, 226], env, 0.3)
+        : (h > 0.2 ? this.tone([255, 246, 230], env, 0.3) : folha));
+      ctx.beginPath();
+      ctx.arc(px + (h - 0.5) * 14, py + (U.hash(i + 5) - 0.5) * 14, 4.6 + h * 3.4, 0, 6.283);
+      ctx.fill();
+    }
+
+    /* --- luz caindo sobre o altar --- */
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(X, yBase - 90, 0, X, yBase - 90, 260);
+    g.addColorStop(0, 'rgba(255,236,200,0.18)');
+    g.addColorStop(1, 'rgba(255,236,200,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(X - 260, yBase - 350, 520, 520);
+    ctx.restore();
   },
 
   /* ======================================================================
