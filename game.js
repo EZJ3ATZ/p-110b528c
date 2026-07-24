@@ -67,6 +67,13 @@ const Game = {
   flor: { cd: 0, dadas: 0 },
   wedding: false, flash: 0,
 
+  /* ------------------------------------------------------------------------
+     O ROTEIRO — quatro escolhas, uns 80 segundos no total.
+     As três primeiras são do Matheus (quem está jogando faz por ele).
+     A última é da Clara: o fim da história é decisão dela.
+     ------------------------------------------------------------------------ */
+  etapa: 0, etapaT: 0, escolhaAberta: false, autoWalk: null,
+
   frasesFlor: [
     { sym: '💐', txt: 'Ela aceitou a flor. E ficou mais perto.' },
     { sym: '🌷', txt: 'Uma flor não resolve nada. Mas ela sorriu.' },
@@ -97,15 +104,18 @@ const Game = {
       endQuote: document.getElementById('endQuote'),
       endBody: document.getElementById('endBody'),
       btnMusic: document.getElementById('btnMusic'),
-      florBtn: document.getElementById('florBtn')
+      florBtn: document.getElementById('florBtn'),
+      choice: document.getElementById('choiceCard'),
+      choiceCena: document.getElementById('choiceCena'),
+      choicePergunta: document.getElementById('choicePergunta'),
+      choiceA: document.getElementById('choiceA'),
+      choiceB: document.getElementById('choiceB')
     };
+    this.dom.choiceA.onclick = () => this.responder('a');
+    this.dom.choiceB.onclick = () => this.responder('b');
 
     this.bindInput();
     this.bindUI();
-    if (this.isTouch) {
-      document.getElementById('startKeys').innerHTML =
-        '<b>encoste na tela</b> para caminhar &nbsp;·&nbsp; botões <b>olhar</b> e <b>dar a flor</b> aparecem sozinhos';
-    }
     this.resize();
     window.addEventListener('resize', () => this.resize());
 
@@ -131,7 +141,11 @@ const Game = {
 
     const startX = 1300;
     this.matheus = new Matheus(startX);
-    this.clara = new Clara(startX + 620);   // começam longe: é assim que ficou
+    this.clara = new Clara(startX + 540);   // começam longe: é assim que ficou
+    this.etapa = 0; this.etapaT = 0; this.escolhaAberta = false; this.recusas = 0;
+    this.autoWalk = null; this.claraScript = null;
+    this.claraBaseX = this.clara.x;
+    this.dom.choice.classList.add('hidden');
 
     // começa no fim de tarde cinza, com garoa: o mundo já está esperando por ela
     Object.assign(this.env, {
@@ -147,7 +161,7 @@ const Game = {
     this.descendo.forEach(l => l.hit = false);
     this.rivals = []; this.rivalTimer = 26; this.rivalCount = 0; this.avisouRival = false;
     this.flor = { cd: 0, dadas: 0 };
-    this.wedding = false; this.flash = 0;
+    this.wedding = false; this.futuro = false; this.flash = 0;
     this.dom.florBtn.classList.add('hidden');
     this.cam.x = startX; this.cam.y = 600; this.cam.rise = 0;
     this.cam.scale = this.baseScale();
@@ -224,9 +238,17 @@ const Game = {
 
     // toque: caminha até o ponto tocado
     if (this.touch.active) {
+      this.autoWalk = null;                 // o toque assume o controle
       const dx = this.touch.wx - m.x;
       if (Math.abs(dx) > 12) ax += U.clamp(dx / 60, -1, 1);
       az += U.clamp((this.touch.wz - m.z) * 5, -1, 1);
+    }
+
+    // caminhada automática depois de uma escolha ("Ir até ela")
+    if (this.autoWalk) {
+      const dx = this.autoWalk.alvo - m.x;
+      if (Math.abs(dx) < 26) this.autoWalk = null;
+      else { ax += U.clamp(dx / 70, -1, 1); az += U.clamp((this.clara.z - m.z) * 4, -1, 1); }
     }
 
     // no celular ele olha sozinho quando para perto dela — sem precisar aprender nada
@@ -295,13 +317,12 @@ const Game = {
     AudioEngine.start();
     // a dica aparece e some sozinha (no celular ela fala de toque, não de teclas)
     const hint = this.dom.hint;
-    if (this.isTouch) {
-      document.getElementById('hintTxt').textContent = 'encoste na tela para caminhar até lá';
-      document.getElementById('hintTxt2').innerHTML = 'chegue <b>perto dela</b>';
-    }
+    document.getElementById('hintTxt').textContent = this.isTouch
+      ? 'encoste na tela para caminhar' : '← → ou W A S D para caminhar';
+    document.getElementById('hintTxt2').innerHTML = 'as escolhas aparecem sozinhas';
     hint.classList.remove('hidden', 'fade');
-    setTimeout(() => hint.classList.add('fade'), 13000);
-    setTimeout(() => hint.classList.add('hidden'), 16000);
+    setTimeout(() => hint.classList.add('fade'), 7000);
+    setTimeout(() => hint.classList.add('hidden'), 9500);
   },
 
   togglePause() {
@@ -371,9 +392,21 @@ const Game = {
     if (this.ending) return;
     this.ending = { id, t: 0, shown: false };
     this.state = 'ending';
-    this.env.dayTarget = 0.775;               // o dia caminha para o pôr do sol
+    this.escolhaAberta = false;
+    this.autoWalk = null;
+    this.dom.choice.classList.add('hidden');
+    this.dom.florBtn.classList.add('hidden');
+    this.env.dayTarget = id === 2 ? 0.685 : 0.775;
     AudioEngine.swell();
-    if (id === 2) this.clara.leave(Math.sign(this.clara.x - this.matheus.x) || 1);
+    if (id === 2) {
+      // garante que exista "o outro" ao lado dela na cena final
+      if (!this.rivals.length) {
+        this.rivals.push(new Rival(this.clara.x + 70, this.clara.z, this.rivalCount++));
+      }
+      this.rivals.length = 1;
+      const o = this.rivals[0];
+      o.mode = 'insistindo'; o.alpha = 1; o.timer = 999;
+    }
   },
 
   /** cenas finais: o jogador solta o controle e o mundo termina de contar */
@@ -429,13 +462,44 @@ const Game = {
       }
 
     } else if (e.id === 2) {
-      /* --- ela segue outro caminho; ele não corre atrás --- */
-      m.vx = U.lerp(m.vx, 0, dt * 3); m.vz = 0;
-      m.gaze = U.lerp(m.gaze, e.t < 9 ? 1 : 0.35, dt * 1.2);
-      m.lookAt(c);
-      c.update(dt, env, m);                   // ela continua andando, devagar
-      this.cam.rise = U.lerp(this.cam.rise, 210, dt * 0.28);
-      env.connection = U.lerp(env.connection, 0.34, dt * 0.25);
+      /* ------------------------------------------------------------------
+         Ela escolheu seguir o outro caminho.
+         Ele não corre atrás. E o jogo mostra a vida que veio depois.
+         ------------------------------------------------------------------ */
+      const outro = this.rivals[0];
+
+      if (!this.futuro) {
+        // 1ª parte: os dois vão embora juntos, ele fica parado olhando
+        m.vx = U.lerp(m.vx, 0, dt * 3); m.vz = 0;
+        m.gaze = U.lerp(m.gaze, 1, dt * 1.4); m.lookAt(c);
+        m.slump = U.lerp(m.slump, 1, dt * 0.5);
+        c.vx = U.lerp(c.vx, 58, dt * 1.2); c.vz = 0;
+        c.gaze = U.lerp(c.gaze, 0, dt * 2);
+        if (outro) { outro.vx = c.vx; outro.gaze = 0; outro.alpha = 1; outro.step(dt, env); }
+        env.connection = U.lerp(env.connection, 0.04, dt * 0.5);
+        if (e.t > 5) this.flash = U.clamp((e.t - 5) / 2.6, 0, 1);
+
+        if (e.t > 7.6) {                       // ---- anos depois ----
+          this.futuro = true;
+          c.x = World.FUTURE_X; c.z = 0.55; c.vx = 0; c.gaze = 0; c.smile = 0;
+          c.dir = -1; c.faceDir = undefined; c.mode = 'sit'; c.sitting = false;
+          if (outro) { outro.x = World.FUTURE_X + 74; outro.z = 0.55; outro.vx = 0; outro.alpha = 1; outro.dir = -1; }
+          m.x = World.FUTURE_X - 1100;         // ele não faz parte desta cena
+          m.alpha = 0;
+          this.cam.x = World.FUTURE_X + 24;
+          env.dayTarget = 0.63;                // o dia não volta a abrir de verdade
+          env.rainTarget = 0.22;
+          AudioEngine.swell();
+        }
+      } else {
+        // 2ª parte: a casa, os anos, as crianças — e o campo sem cor
+        this.flash = Math.max(0, this.flash - dt * 0.7);
+        env.connection = 0; env.warmth = U.lerp(env.warmth, 0, dt * 2);
+        c.vx = 0; c.vz = 0; c.gaze = 0; c.smile = U.lerp(c.smile, 0, dt);
+        c.step(dt, env);
+        if (outro) { outro.vx = 0; outro.step(dt, env); }
+        this.cam.rise = U.lerp(this.cam.rise, 30, dt * 0.4);
+      }
 
     } else {
       /* --- cada um por uma estrada --- */
@@ -450,7 +514,7 @@ const Game = {
     m.step(dt, env);
 
     // a frase entra depois que a cena respirou
-    if (!e.shown && e.t > (e.id === 1 ? 11 : 9.5)) {
+    if (!e.shown && e.t > (e.id === 1 ? 11 : (e.id === 2 ? 13 : 9.5))) {
       e.shown = true;
       this.showEndScreen(e.id);
     }
@@ -465,8 +529,9 @@ const Game = {
       },
       2: {
         tag: 'final · o outro caminho',
-        quote: 'Amar também é desejar felicidade, mesmo quando ela segue outro caminho.',
-        body: 'Ela continuou andando devagar.<br />Você não correu atrás — e isso também foi um jeito de amar.'
+        quote: 'A vida seguiu. Mas o campo nunca mais voltou a ficar colorido.',
+        body: 'Vieram a casa, os anos, as crianças correndo no quintal.<br />' +
+          'E em algumas tardes, sem motivo nenhum, ela para — e lembra de um lugar onde tudo florescia.'
       },
       3: {
         tag: 'final · duas estradas',
@@ -481,24 +546,186 @@ const Game = {
     this.dom.hud.classList.add('hidden');
   },
 
+  /* =======================================================================
+     ROTEIRO E ESCOLHAS
+     ======================================================================= */
+  abrirEscolha(e) {
+    this.escolhaAberta = e;
+    this.dom.choiceCena.innerHTML = e.cena;
+    this.dom.choicePergunta.textContent = e.pergunta || 'o que você faz?';
+    this.dom.choiceA.textContent = e.a.txt;
+    this.dom.choiceB.textContent = e.b.txt;
+    this.dom.choice.classList.remove('hidden');
+    this.dom.choice.style.animation = 'none';
+    void this.dom.choice.offsetWidth;
+    this.dom.choice.style.animation = '';
+    this.hideMemory();
+  },
+
+  responder(qual) {
+    const e = this.escolhaAberta;
+    if (!e) return;
+    this.escolhaAberta = false;
+    this.dom.choice.classList.add('hidden');
+    this.etapaT = 0;
+    (qual === 'a' ? e.a : e.b).fn.call(this);
+  },
+
+  /** caminhada automática — quem está jogando não precisa aprender controle */
+  irAte(x) { this.autoWalk = { alvo: x }; },
+
+  irAteEla() {
+    this.claraScript = null;            // ela volta a andar por conta própria
+    this.irAte(this.clara.x - 80);
+    this.etapa = 2;
+  },
+
+  roteiro(dt) {
+    if (this.state !== 'playing' || this.escolhaAberta || this.ending) return;
+    const m = this.matheus, c = this.clara, env = this.env;
+    const d = Math.abs(c.x - m.x);
+    this.etapaT += dt;
+
+    switch (this.etapa) {
+      /* ---------- 1. a distância ---------- */
+      case 0:
+        // enquanto ele não decide, ela fica onde está — não é ela que corre atrás
+        this.claraScript = { alvoX: this.claraBaseX };
+        if (this.etapaT > 4.5) {
+          this.etapa = 1;
+          this.abrirEscolha({
+            cena: 'Ela está ali, do outro lado do campo.<br />Faz tempo que vocês não ficam no mesmo lugar.',
+            a: { txt: 'Ir até ela', fn: () => this.irAteEla() },
+            b: {
+              txt: 'Ficar onde está', fn: () => {
+                this.etapa = 1.5; this.recusas++;
+                env.connection = Math.max(0, env.connection - 0.05);
+                this.showLine({ sym: '🌧', txt: 'Você ficou parado. O campo esfriou mais um pouco.' });
+              }
+            }
+          });
+        }
+        break;
+
+      // ele ficou parado: a chance volta uma vez. Depois a vida segue sem esperar.
+      case 1.5:
+        this.claraScript = { alvoX: this.claraBaseX };
+        if (this.etapaT > 6.5) {
+          if (this.recusas >= 2) {
+            this.showLine({ sym: '🍂', txt: 'Você não foi. E quem não vai, um dia perde o lugar.' });
+            this.etapa = 4; this.etapaT = 0;   // o outro aparece justamente agora
+            this.claraScript = null;
+            break;
+          }
+          this.etapa = 1;
+          this.abrirEscolha({
+            cena: 'Ela continua ali. Ainda não foi embora.',
+            pergunta: 'e agora?',
+            a: { txt: 'Ir até ela', fn: () => this.irAteEla() },
+            b: {
+              txt: 'Continuar parado', fn: () => {
+                this.etapa = 1.5; this.recusas++;
+                env.connection = Math.max(0, env.connection - 0.05);
+              }
+            }
+          });
+        }
+        break;
+
+      /* ---------- 2. a flor ---------- */
+      case 2:
+        if ((d < 190 && this.etapaT > 3.5) || this.etapaT > 16) {
+          this.etapa = 3;
+          this.autoWalk = null;
+          env.connection = Math.max(env.connection, 0.32);
+          this.abrirEscolha({
+            cena: 'Você chegou perto — e o campo começou a florir de novo.',
+            a: {
+              txt: 'Colher uma flor e dar para ela', fn: () => {
+                this.matheus.holding = { c: [246, 214, 168] };
+                this.darFlor();
+                this.etapa = 4;
+              }
+            },
+            b: {
+              txt: 'Só ficar do lado dela', fn: () => {
+                this.etapa = 4;
+                env.connection = Math.min(1, env.connection + 0.10);
+                this.showLine({ sym: '🌿', txt: 'Você ficou. Às vezes é isso que falta.' });
+              }
+            }
+          });
+        }
+        break;
+
+      /* ---------- 3. o outro ---------- */
+      case 4:
+        if (this.etapaT > 4) {
+          // ele para a uma distância boa e ELA vai até lá ver quem é
+          const lado = (Math.sign(c.x - m.x) || 1);
+          const r = new Rival(c.x + lado * 620, c.z, this.rivalCount++);
+          r.alvoX = c.x + lado * 330;
+          this.rivals.push(r);
+          this.claraScript = { alvoX: r.alvoX - lado * 85 };
+          this.etapa = 5;
+        }
+        break;
+
+      case 5: {
+        const r = this.rivals[0];
+        // rede de segurança: o roteiro nunca pode ficar preso esperando um estado
+        if (r && r.mode !== 'insistindo' && this.etapaT > 11) r.mode = 'insistindo';
+        if (!r && this.etapaT > 14) { this.etapa = 4; this.etapaT = 4; break; }
+        if (r && r.mode === 'insistindo') {
+          this.etapa = 6;
+          this.abrirEscolha({
+            cena: 'Alguém chegou perto dela e puxou conversa.<br />Ela parou para ouvir.',
+            a: {
+              txt: 'Ir até lá e ficar perto dela', fn: () => {
+                this.irAte(r.x - Math.sign(r.x - m.x) * 110);
+                this.etapa = 7;
+              }
+            },
+            b: {
+              txt: 'Deixar acontecer', fn: () => {
+                this.etapa = 7;
+                env.connection = Math.max(0, env.connection - 0.22);
+                this.showLine({ sym: '🍂', txt: 'Você deixou. Ela também percebe quando você não vem.' });
+              }
+            }
+          });
+        }
+        break;
+      }
+
+      /* ---------- 4. a escolha dela ---------- */
+      case 7:
+        // o outro foi embora (ou ficou): a Clara volta a ser dona dos passos dela
+        if (this.claraScript && (!this.rivals.length || this.rivals[0].mode === 'saindo')) {
+          this.claraScript = null;
+        }
+        if (this.etapaT > 9) {
+          this.etapa = 8;
+          this.claraScript = null;
+          this.autoWalk = null;
+          this.rivals.forEach(r => { if (r.mode !== 'saindo') { r.mode = 'saindo'; r.saiuPor = 'tempo'; } });
+          const bom = env.connection > 0.55;
+          this.abrirEscolha({
+            cena: bom
+              ? 'Ela virou para você. O campo inteiro está florido.<br /><b>Agora quem escolhe é ela.</b>'
+              : 'Ela virou para você. O campo continua cinza.<br /><b>Agora quem escolhe é ela.</b>',
+            pergunta: 'clara escolhe',
+            a: { txt: 'Perdoar e ficar', fn: () => this.endWith(1) },
+            b: { txt: 'Seguir o outro caminho', fn: () => this.endWith(2) }
+          });
+        }
+        break;
+    }
+  },
+
   /* ---------------------------------------------------------------- rivais */
   atualizarRivais(dt, env, m, c) {
-    // nascem de tempos em tempos, sempre do lado oposto ao Matheus
-    if (this.state === 'playing' && !this.wedding) {
-      this.rivalTimer -= dt;
-      if (this.rivalTimer <= 0 && this.rivals.length === 0 && env.t > 22) {
-        const lado = Math.sign(c.x - m.x) || 1;
-        const x = U.clamp(c.x + lado * U.rand(620, 880), 80, World.WIDTH - 80);
-        this.rivals.push(new Rival(x, U.clamp(c.z + U.rand(-0.12, 0.12), 0.1, 0.9), this.rivalCount++));
-        this.rivalTimer = U.rand(30, 52);
-        if (!this.avisouRival) {
-          this.avisouRival = true;
-          this.lineCooldown = 0;
-          this.showLine({ sym: '👤', txt: 'Alguém sempre aparece quando você demora. Chegue perto.' });
-        }
-      }
-    }
-
+    if (this.ending) return;               // nos finais quem manda é a cena
     for (let i = this.rivals.length - 1; i >= 0; i--) {
       const r = this.rivals[i];
       r.update(dt, env, c, m);
@@ -536,13 +763,28 @@ const Game = {
 
     if (this.state === 'ending') {
       this.runEnding(dt);
+    } else if (this.escolhaAberta) {
+      // com o cartão aberto o mundo continua vivo, mas ninguém caminha
+      m.vx = U.lerp(m.vx, 0, dt * 6); c.vx = U.lerp(c.vx, 0, dt * 6);
+      m.step(dt, env); c.step(dt, env);
     } else {
       m.input = this.readInput();
       m.update(dt, env, c);
-      c.update(dt, env, m, this.rivals[0]);
+      if (this.claraScript) {
+        // o roteiro leva a Clara até o outro (ela vai ver quem é)
+        const dx = this.claraScript.alvoX - c.x;
+        c.vx = U.lerp(c.vx, U.clamp(dx / 70, -1, 1) * 105, dt * 3);
+        c.gaze = U.lerp(c.gaze, 0, dt * 2);
+        c.gazeTarget = 'rival';
+        c.step(dt, env);
+        if (Math.abs(dx) < 24) c.vx = 0;
+      } else {
+        c.update(dt, env, m, this.rivals[0]);
+      }
       this.colherFlor();
       if (this.flor.cd > 0) this.flor.cd -= dt;
     }
+    this.roteiro(dt);
 
     /* ---- quem aparece para atrapalhar ---- */
     this.atualizarRivais(dt, env, m, c);
@@ -609,18 +851,21 @@ const Game = {
     // a câmera "puxa" na direção dela, mas nunca o suficiente para tirar
     // o Matheus da tela (isso quebrava tudo no celular)
     const maxBias = (this.view.w * 0.16) / this.cam.scale;
-    const followX = m.x + U.clamp((c.x - m.x) * 0.38, -maxBias, maxBias);
+    // nos finais a câmera pertence à cena, não ao jogador
+    const followX = this.futuro ? c.x + 34
+      : (this.wedding ? World.ALTAR_X
+        : m.x + U.clamp((c.x - m.x) * 0.38, -maxBias, maxBias));
     // em tela de celular o afastamento é menor, senão eles viram formiguinhas
     const minZoom = this.view.w < 720 ? 0.90 : 0.78;
-    const zoom = this.wedding ? 1.85 : U.map(d, 260, 1500, 1.08, minZoom);
+    const zoom = this.wedding ? 1.85 : (this.futuro ? 1.25 : U.map(d, 260, 1500, 1.08, minZoom));
     const base = this.baseScale();
     this.cam.scale = U.lerp(this.cam.scale, base * zoom, dt * (this.wedding ? 0.7 : 1.1));
     const halfW = this.view.w / 2 / this.cam.scale;
     this.cam.x = U.lerp(this.cam.x, U.clamp(followX, halfW - 100, World.WIDTH - halfW + 100), dt * 2.2);
     // enquadramento: o chão fica no terço de baixo e a sobra de tela vira céu
     // (no celular em pé isso é o que evita um vazio de grama embaixo)
-    const camYBase = this.wedding
-      ? World.bandY(0.58) - 0.26 * this.view.h / this.cam.scale
+    const camYBase = (this.wedding || this.futuro)
+      ? World.bandY(this.wedding ? 0.58 : 0.50) - 0.26 * this.view.h / this.cam.scale
       : U.clamp(World.BAND_Y1 - 0.30 * this.view.h / this.cam.scale, 380, 620);
     this.cam.y = U.lerp(this.cam.y, camYBase - this.cam.rise, dt * 1.2);
 
@@ -667,44 +912,8 @@ const Game = {
       this.memTimer -= dt;
       if (this.memTimer <= 0) this.hideMemory();
     }
-    if (this.state === 'playing') {
-      for (const mem of World.memories) {
-        if (mem.found) continue;
-        if (Math.abs(mem.x - m.x) < 95 && Math.abs(mem.z - m.z) < 0.4) {
-          mem.found = true;
-          this.showMemory(mem);
-          break;
-        }
-      }
-    }
-
-    /* ================= OS FINAIS ================= */
-    if (this.state === 'playing' && env.t > 20) {
-      // 1 · permanecer perto por bastante tempo (o final que ele quer alcançar)
-      if (env.connection > 0.72 && d < 300) this.closeTime += dt;
-      else this.closeTime = Math.max(0, this.closeTime - dt * 0.5);
-      if (this.closeTime > 42) {
-        // ficar perto não basta: ele precisa ter dado ao menos uma flor
-        if (this.flor.dadas > 0) this.endWith(1);
-        else if (this.lineCooldown <= 0 && this.memTimer <= 0) {
-          this.showLine({ sym: '🌼', txt: 'Falta uma coisa. Colhe uma flor e dá para ela.' });
-        }
-      }
-
-      // 3 · caminhar em direções diferentes por muito tempo (precisa ser de propósito)
-      if (apart && d > 700) this.divergeTime += dt * 1.2;
-      else if (d > 1800) this.divergeTime += dt * 0.5;
-      else this.divergeTime = Math.max(0, this.divergeTime - dt * 1.2);
-      if (this.divergeTime > 34) this.endWith(3);
-
-      // 2 · a paciência dela acaba: ela decide seguir o próprio caminho
-      if (env.t > 150) {
-        if (env.connection < 0.45 && d > 520) this.patience -= dt;
-        else this.patience += dt * 0.6;
-        this.patience = Math.min(this.patience, 120);
-        if (this.patience <= 0) this.endWith(2);
-      }
-    }
+    // (os lugares de memória continuam no cenário, mas não interrompem mais o
+    //  jogo com cartões: quem manda na tela agora são as escolhas)
   },
 
   /* --------------------------------------------------------------- desenho */
@@ -724,6 +933,7 @@ const Game = {
     World.drawGround(ctx, env, cam, view);
     World.drawGroundDetail(ctx, env, cam, view);
     if (this.wedding) World.drawAltar(ctx, env);   // fica atrás dos noivos
+    if (this.futuro) World.drawFuturo(ctx, env, env.t);
 
     // tudo que tem "profundidade" é ordenado pelo z para o desenho ficar certo
     const drawables = [];
