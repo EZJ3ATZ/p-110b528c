@@ -62,6 +62,18 @@ const Game = {
   topo: 0,                  // maior conexão já alcançada
   lineCooldown: 0,
 
+  // rivais, flores e casamento
+  rivals: [], rivalTimer: 26, rivalCount: 0, avisouRival: false,
+  flor: { cd: 0, dadas: 0 },
+  wedding: false, flash: 0,
+
+  frasesFlor: [
+    { sym: '💐', txt: 'Ela aceitou a flor. E ficou mais perto.' },
+    { sym: '🌷', txt: 'Uma flor não resolve nada. Mas ela sorriu.' },
+    { sym: '🌹', txt: 'Você lembrou do que ela gosta.' },
+    { sym: '💛', txt: 'Não é sobre a flor. É sobre você ter parado para colher.' }
+  ],
+
   ending: null,             // { id, t }
   memTimer: 0,
 
@@ -84,14 +96,15 @@ const Game = {
       endTag: document.getElementById('endTag'),
       endQuote: document.getElementById('endQuote'),
       endBody: document.getElementById('endBody'),
-      btnMusic: document.getElementById('btnMusic')
+      btnMusic: document.getElementById('btnMusic'),
+      florBtn: document.getElementById('florBtn')
     };
 
     this.bindInput();
     this.bindUI();
     if (this.isTouch) {
       document.getElementById('startKeys').innerHTML =
-        '<b>encoste na tela</b> para caminhar &nbsp;·&nbsp; botão <b>olhar</b> no canto';
+        '<b>encoste na tela</b> para caminhar &nbsp;·&nbsp; botões <b>olhar</b> e <b>dar a flor</b> aparecem sozinhos';
     }
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -132,6 +145,10 @@ const Game = {
     this.topo = 0; this.lineCooldown = 4;
     this.subindo.forEach(l => l.hit = false);
     this.descendo.forEach(l => l.hit = false);
+    this.rivals = []; this.rivalTimer = 26; this.rivalCount = 0; this.avisouRival = false;
+    this.flor = { cd: 0, dadas: 0 };
+    this.wedding = false; this.flash = 0;
+    this.dom.florBtn.classList.add('hidden');
     this.cam.x = startX; this.cam.y = 600; this.cam.rise = 0;
     this.cam.scale = this.baseScale();
     this.keys = this.keys || {};
@@ -150,6 +167,7 @@ const Game = {
       if (e.key === 'm' || e.key === 'M') this.toggleMusic();
       if (e.key === 'f' || e.key === 'F') this.toggleFull();
       if (e.key === 'r' || e.key === 'R') this.restart();
+      if (e.key === 'e' || e.key === 'E') this.darFlor();
       if (e.key === 'Enter' && this.state === 'menu') this.play();
     });
     addEventListener('keyup', e => { this.keys[e.key.toLowerCase()] = false; });
@@ -227,6 +245,47 @@ const Game = {
     document.getElementById('btnPause').onclick = () => this.togglePause();
     document.getElementById('btnMusic').onclick = () => this.toggleMusic();
     document.getElementById('btnFull').onclick = () => this.toggleFull();
+    this.dom.florBtn.onclick = () => this.darFlor();
+  },
+
+  /* --------------------------------------------------------- dar uma flor */
+  /** Ele colhe do chão enquanto caminha; entregar é uma escolha dele. */
+  colherFlor() {
+    const m = this.matheus;
+    if (m.holding || this.flor.cd > 0 || this.state !== 'playing') return;
+    for (let i = 0; i < World.flowers.length; i++) {
+      const f = World.flowers[i];
+      if (f.age > 0.6 && Math.abs(f.x - m.x) < 46 && Math.abs(f.z - m.z) < 0.22) {
+        m.holding = { c: f.c };
+        World.flowers.splice(i, 1);
+        Particles.emit('spark', f.x, World.bandY(f.z) - 16, 4, { c: f.c });
+        return;
+      }
+    }
+  },
+
+  darFlor() {
+    const m = this.matheus, c = this.clara;
+    if (this.state !== 'playing' || !m.holding) return;
+    if (Math.abs(c.x - m.x) > 190) return;          // ela precisa estar por perto
+
+    const cor = m.holding.c;
+    m.holding = null;
+    this.flor.cd = 6;
+    this.flor.dadas++;
+
+    this.env.connection = U.clamp(this.env.connection + 0.14, 0, 1);
+    c.gazeWant = true; c.gazeTimer = 5; c.smile = 1;
+    c.decision = 0.1; c.mode = 'walk_with';         // ela chega mais perto depois
+
+    const mid = (m.x + c.x) / 2, y = World.bandY(c.z);
+    Particles.emit('burst', mid, y - 50, 24, { c: cor });
+    for (let i = 0; i < 12; i++) Particles.emit('petal', mid + U.rand(-60, 60), y - 90, 1);
+    AudioEngine.chime();
+
+    const f = this.frasesFlor[Math.min(this.flor.dadas - 1, this.frasesFlor.length - 1)];
+    this.lineCooldown = 0; this.memTimer = 0;
+    this.showLine(f);
   },
 
   play() {
@@ -323,28 +382,51 @@ const Game = {
     e.t += dt;
 
     if (e.id === 1) {
-      /* --- ficam juntos, sentam e olham o sol descer --- */
-      const mid = (m.x + c.x) / 2;
-      const goalM = mid - 22, goalC = mid + 22;
-      if (!m.sitting) {
-        m.vx = U.clamp(goalM - m.x, -60, 60);
-        c.vx = U.clamp(goalC - c.x, -60, 60);
-        m.vz = (0.62 - m.z) * 0.5; c.vz = (0.62 - c.z) * 0.5;
-        if (Math.abs(goalM - m.x) < 8 && Math.abs(goalC - c.x) < 8 && e.t > 2.5) {
-          m.vx = c.vx = 0;
-          m.sitting = c.sitting = true;
-          m.dir = 1; c.dir = 1;               // os dois virados para o poente
-          m.faceDir = 1; c.faceDir = 1;
+      /* ------------------------------------------------------------------
+         FINAL FELIZ — os dois se olham, a luz cresce, tudo fica branco
+         e quando a luz baixa eles já estão no altar.
+         ------------------------------------------------------------------ */
+      env.connection = 1;
+
+      if (!this.wedding) {
+        // 1ª parte: se aproximam e se olham enquanto a luz sobe
+        const mid = (m.x + c.x) / 2;
+        m.vx = U.clamp((mid - 26 - m.x) * 2, -70, 70);
+        c.vx = U.clamp((mid + 26 - c.x) * 2, -70, 70);
+        m.vz = (0.62 - m.z) * 0.6; c.vz = (0.62 - c.z) * 0.6;
+        m.gaze = U.lerp(m.gaze, 1, dt * 2.4); c.gaze = U.lerp(c.gaze, 1, dt * 2.4);
+        m.lookAt(c); c.lookAt(m);
+        this.flash = U.clamp(e.t / 3.4, 0, 1);
+
+        if (e.t > 3.4) {                       // ---- teletransporte ----
+          this.wedding = true;
+          this.rivals.length = 0;
+          m.wedding = c.wedding = true;
+          m.holding = null; m.slump = 0;
+          m.x = World.ALTAR_X - 34; c.x = World.ALTAR_X + 34;
+          m.z = c.z = 0.55;
+          m.vx = c.vx = 0; m.vz = c.vz = 0;
+          m.dir = 1; c.dir = -1;               // de frente um para o outro
+          this.cam.x = World.ALTAR_X;
+          env.dayTarget = 0.45;                // dia claro e dourado
+          env.rainTarget = 0; env.rain = 0;
+          env.warmth = 1;
+          AudioEngine.swell();
         }
-        m.gaze = U.lerp(m.gaze, 1, dt * 2);
-        c.gaze = U.lerp(c.gaze, 1, dt * 2);
       } else {
+        // 2ª parte: no altar
+        this.flash = Math.max(0, this.flash - dt * 0.75);
         m.vx = c.vx = 0; m.vz = c.vz = 0;
-        m.gaze = c.gaze = 0.5;                // o sorriso fica; o olhar vai para o horizonte
-        m.faceDir = c.faceDir = 1;
-        this.cam.rise = U.lerp(this.cam.rise, 30, dt * 0.5);
+        m.gaze = c.gaze = 1;
+        m.lookAt(c); c.lookAt(m);
+        m.smile = c.smile = 1;
+        this.cam.rise = U.lerp(this.cam.rise, 20, dt * 0.4);
+        // pétalas caindo sobre os dois
+        if (Math.random() < dt * 26) {
+          Particles.emit('petal', World.ALTAR_X + U.rand(-220, 220), World.BAND_Y0 - 220, 1);
+        }
+        if (Math.random() < dt * 3) AudioEngine.chime();
       }
-      env.connection = Math.min(1, env.connection + dt * 0.12);
 
     } else if (e.id === 2) {
       /* --- ela segue outro caminho; ele não corre atrás --- */
@@ -368,7 +450,7 @@ const Game = {
     m.step(dt, env);
 
     // a frase entra depois que a cena respirou
-    if (!e.shown && e.t > (e.id === 1 ? 8.5 : 9.5)) {
+    if (!e.shown && e.t > (e.id === 1 ? 11 : 9.5)) {
       e.shown = true;
       this.showEndScreen(e.id);
     }
@@ -377,9 +459,9 @@ const Game = {
   showEndScreen(id) {
     const D = {
       1: {
-        tag: 'final · o pôr do sol',
+        tag: 'final · o altar',
         quote: 'Algumas conexões transformam uma vida inteira.',
-        body: 'Não houve beijo. Não houve promessa.<br />Só dois silêncios sentados no mesmo lugar, vendo o sol descer.'
+        body: 'Você atravessou a chuva, o cinza e todo mundo que apareceu no meio do caminho.<br />No fim, era só isso: ficar perto.'
       },
       2: {
         tag: 'final · o outro caminho',
@@ -399,6 +481,40 @@ const Game = {
     this.dom.hud.classList.add('hidden');
   },
 
+  /* ---------------------------------------------------------------- rivais */
+  atualizarRivais(dt, env, m, c) {
+    // nascem de tempos em tempos, sempre do lado oposto ao Matheus
+    if (this.state === 'playing' && !this.wedding) {
+      this.rivalTimer -= dt;
+      if (this.rivalTimer <= 0 && this.rivals.length === 0 && env.t > 22) {
+        const lado = Math.sign(c.x - m.x) || 1;
+        const x = U.clamp(c.x + lado * U.rand(620, 880), 80, World.WIDTH - 80);
+        this.rivals.push(new Rival(x, U.clamp(c.z + U.rand(-0.12, 0.12), 0.1, 0.9), this.rivalCount++));
+        this.rivalTimer = U.rand(30, 52);
+        if (!this.avisouRival) {
+          this.avisouRival = true;
+          this.lineCooldown = 0;
+          this.showLine({ sym: '👤', txt: 'Alguém sempre aparece quando você demora. Chegue perto.' });
+        }
+      }
+    }
+
+    for (let i = this.rivals.length - 1; i >= 0; i--) {
+      const r = this.rivals[i];
+      r.update(dt, env, c, m);
+      if (r.morto) {
+        // se ele saiu porque o Matheus chegou, isso conta a favor dos dois
+        if (r.saiuPor === 'matheus') {
+          env.connection = U.clamp(env.connection + 0.06, 0, 1);
+          if (this.lineCooldown <= 0 && this.memTimer <= 0) {
+            this.showLine({ sym: '🌤', txt: 'Ele foi embora. Você ficou.' });
+          }
+        }
+        this.rivals.splice(i, 1);
+      }
+    }
+  },
+
   /* ------------------------------------------------------------- atualizar */
   update(dt) {
     const env = this.env, m = this.matheus, c = this.clara;
@@ -416,13 +532,20 @@ const Game = {
     }
 
     /* ---- personagens ---- */
+    const rivalAtivo = this.rivals.find(r => r.mode === 'insistindo');
+
     if (this.state === 'ending') {
       this.runEnding(dt);
     } else {
       m.input = this.readInput();
       m.update(dt, env, c);
-      c.update(dt, env, m);
+      c.update(dt, env, m, this.rivals[0]);
+      this.colherFlor();
+      if (this.flor.cd > 0) this.flor.cd -= dt;
     }
+
+    /* ---- quem aparece para atrapalhar ---- */
+    this.atualizarRivais(dt, env, m, c);
 
     /* ================= A CONEXÃO (invisível) ================= */
     const dx = Math.abs(c.x - m.x);
@@ -431,20 +554,23 @@ const Game = {
     const near = U.map(d, 520, 120, 0, 1);
     const sameWay = m.moveAmt > 0.4 && c.moveAmt > 0.4 &&
       Math.sign(m.vx) === Math.sign(c.vx) && Math.abs(m.vx) > 10 && d < 340;
-    const mutualNow = m.gaze > 0.55 && c.gaze > 0.55 && d < 900;
+    const mutualNow = m.gaze > 0.55 && c.gaze > 0.55 && d < 900 && c.gazeTarget === 'player';
 
     if (d < 210 && m.moveAmt < 0.25 && c.moveAmt < 0.25) this.stillTime += dt;
     else this.stillTime = Math.max(0, this.stillTime - dt * 2);
 
     // perto some rápido, longe cai rápido: a relação tem que ficar ÓBVIA
-    const gain = near * 0.045 +
+    let gain = near * 0.045 +
       (sameWay ? 0.030 : 0) +
       (mutualNow ? 0.060 : 0) +
       (this.stillTime > 2 ? 0.030 : 0);
 
     const apart = m.moveAmt > 0.35 && c.moveAmt > 0.35 &&
       Math.sign(m.vx) !== Math.sign(c.vx) && d > 330;
-    const loss = (d > 560 ? U.map(d, 560, 2200, 0.020, 0.090) : 0) + (apart ? 0.045 : 0);
+    let loss = (d > 560 ? U.map(d, 560, 2200, 0.020, 0.090) : 0) + (apart ? 0.045 : 0);
+
+    // enquanto tem alguém puxando conversa com ela, nada avança
+    if (rivalAtivo && Math.abs(rivalAtivo.x - c.x) < 150) { gain *= 0.10; loss += 0.030; }
 
     if (this.state === 'playing') {
       env.connection = U.clamp(env.connection + (gain - loss) * dt, 0, 1);
@@ -486,14 +612,16 @@ const Game = {
     const followX = m.x + U.clamp((c.x - m.x) * 0.38, -maxBias, maxBias);
     // em tela de celular o afastamento é menor, senão eles viram formiguinhas
     const minZoom = this.view.w < 720 ? 0.90 : 0.78;
-    const zoom = U.map(d, 260, 1500, 1.08, minZoom);
+    const zoom = this.wedding ? 1.85 : U.map(d, 260, 1500, 1.08, minZoom);
     const base = this.baseScale();
-    this.cam.scale = U.lerp(this.cam.scale, base * zoom, dt * 1.1);
+    this.cam.scale = U.lerp(this.cam.scale, base * zoom, dt * (this.wedding ? 0.7 : 1.1));
     const halfW = this.view.w / 2 / this.cam.scale;
     this.cam.x = U.lerp(this.cam.x, U.clamp(followX, halfW - 100, World.WIDTH - halfW + 100), dt * 2.2);
     // enquadramento: o chão fica no terço de baixo e a sobra de tela vira céu
     // (no celular em pé isso é o que evita um vazio de grama embaixo)
-    const camYBase = U.clamp(World.BAND_Y1 - 0.30 * this.view.h / this.cam.scale, 380, 620);
+    const camYBase = this.wedding
+      ? World.bandY(0.58) - 0.26 * this.view.h / this.cam.scale
+      : U.clamp(World.BAND_Y1 - 0.30 * this.view.h / this.cam.scale, 380, 620);
     this.cam.y = U.lerp(this.cam.y, camYBase - this.cam.rise, dt * 1.2);
 
     /* ---- ambiente, mundo, partículas ---- */
@@ -530,6 +658,10 @@ const Game = {
       for (const l of this.descendo) if (l.hit && conn > l.c + 0.22) l.hit = false;
     }
 
+    /* ---- botão da flor: só aparece quando ela pode receber ---- */
+    const podeDar = this.state === 'playing' && !!m.holding && Math.abs(c.x - m.x) < 190;
+    this.dom.florBtn.classList.toggle('hidden', !podeDar);
+
     /* ---- memórias ---- */
     if (this.memTimer > 0) {
       this.memTimer -= dt;
@@ -551,7 +683,13 @@ const Game = {
       // 1 · permanecer perto por bastante tempo (o final que ele quer alcançar)
       if (env.connection > 0.72 && d < 300) this.closeTime += dt;
       else this.closeTime = Math.max(0, this.closeTime - dt * 0.5);
-      if (this.closeTime > 42) this.endWith(1);
+      if (this.closeTime > 42) {
+        // ficar perto não basta: ele precisa ter dado ao menos uma flor
+        if (this.flor.dadas > 0) this.endWith(1);
+        else if (this.lineCooldown <= 0 && this.memTimer <= 0) {
+          this.showLine({ sym: '🌼', txt: 'Falta uma coisa. Colhe uma flor e dá para ela.' });
+        }
+      }
 
       // 3 · caminhar em direções diferentes por muito tempo (precisa ser de propósito)
       if (apart && d > 700) this.divergeTime += dt * 1.2;
@@ -585,6 +723,7 @@ const Game = {
 
     World.drawGround(ctx, env, cam, view);
     World.drawGroundDetail(ctx, env, cam, view);
+    if (this.wedding) World.drawAltar(ctx, env);   // fica atrás dos noivos
 
     // tudo que tem "profundidade" é ordenado pelo z para o desenho ficar certo
     const drawables = [];
@@ -601,6 +740,7 @@ const Game = {
     }
     drawables.push({ z: this.clara.z, f: () => this.clara.draw(ctx, env) });
     drawables.push({ z: this.matheus.z, f: () => this.matheus.draw(ctx, env) });
+    for (const r of this.rivals) drawables.push({ z: r.z, f: () => r.draw(ctx, env) });
 
     drawables.sort((a, b) => a.z - b.z);
     for (const d of drawables) d.f();
@@ -613,6 +753,14 @@ const Game = {
     World.drawFog(ctx, env, view);
     World.drawGrade(ctx, env, view);
     this.drawClaraArrow(ctx, env, view);
+
+    // clarão do teletransporte
+    if (this.flash > 0.001) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,252,244,' + U.clamp(Math.pow(this.flash, 1.6), 0, 1) + ')';
+      ctx.fillRect(0, 0, view.w, view.h);
+      ctx.restore();
+    }
   },
 
   /**
@@ -621,7 +769,7 @@ const Game = {
    * sobre saber para onde caminhar.
    */
   drawClaraArrow(ctx, env, view) {
-    if (this.state !== 'playing') return;
+    if (this.state !== 'playing' || this.wedding) return;
     const c = this.clara;
     const sx = (c.x - this.cam.x) * this.cam.scale + view.w / 2;
     const margin = 46;
