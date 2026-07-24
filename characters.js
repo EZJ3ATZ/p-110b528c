@@ -579,6 +579,12 @@ class Rival extends Person {
         if (this.timer <= 0) { this.mode = 'saindo'; this.saiuPor = 'tempo'; }
         break;
 
+      // parado em cena (usado no final "anos depois")
+      case 'parado':
+        this.vx = 0; this.vz = 0;
+        this.label = 0;
+        break;
+
       // levou o soco: voa para trás, gira e some
       case 'apanhando':
         this.knock += dt;
