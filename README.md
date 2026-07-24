@@ -28,8 +28,8 @@ São **oito escolhas**, uma por toque, em uns dois minutos:
 
 - Ela fala, você responde.
 - Entre as falas vêm os gestos: **flor**, **cheeseburger**, **beijo na testa**.
-- No meio do caminho **alguém aparece** e puxa conversa com ela — se você não
-  for até lá, o campo esfria.
+- No meio do caminho aparece um **"Matheus (falso)"** — igualzinho a ele, com a
+  plaquinha em cima. Dá para tomar um soco e sumir, ou você deixa acontecer.
 - A última escolha é **dela**: perdoar e ficar, ou seguir o outro caminho.
   Uma leva ao casamento; a outra, à vida que veio depois.
 
