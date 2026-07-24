@@ -379,7 +379,8 @@ const Game = {
 
   /** frase da reconquista (sem símbolo de lugar, só o sentimento) */
   showLine(l) {
-    if (this.escolhaAberta) return;         // nunca competir com o cartão de escolha
+    // nunca competir com o cartão de escolha nem com as cenas finais
+    if (this.escolhaAberta || this.ending) return;
     this.dom.memSym.textContent = l.sym;
     this.dom.memTxt.textContent = l.txt;
     this.dom.memCard.classList.add('show');
@@ -400,6 +401,9 @@ const Game = {
     this.autoWalk = null;
     this.dom.choice.classList.add('hidden');
     this.dom.florBtn.classList.add('hidden');
+    // nenhuma frase solta pode ficar por cima da cena final
+    this.hideMemory();
+    this.memTimer = 0;
     this.env.dayTarget = id === 2 ? 0.685 : 0.775;
     AudioEngine.swell();
     if (id === 2) {
@@ -458,7 +462,7 @@ const Game = {
         m.lookAt(c); c.lookAt(m);
         m.smile = c.smile = 1;
         // sobe a cena para os noivos não ficarem atrás do texto final
-        this.cam.rise = U.lerp(this.cam.rise, -120, dt * 0.45);
+        this.cam.rise = U.lerp(this.cam.rise, -145, dt * 0.45);
         // pétalas caindo sobre os dois
         if (Math.random() < dt * 26) {
           Particles.emit('petal', World.ALTAR_X + U.rand(-220, 220), World.BAND_Y0 - 220, 1);
@@ -923,7 +927,8 @@ const Game = {
         : m.x + U.clamp((c.x - m.x) * 0.38, -maxBias, maxBias));
     // em tela de celular o afastamento é menor, senão eles viram formiguinhas
     const minZoom = this.view.w < 720 ? 0.90 : 0.78;
-    const zoom = this.wedding ? 1.85 : (this.futuro ? 1.05 : U.map(d, 260, 1500, 1.08, minZoom));
+    // nas cenas finais o quadro é mais aberto: tem que caber o cenário inteiro
+    const zoom = this.wedding ? 1.15 : (this.futuro ? 1.05 : U.map(d, 260, 1500, 1.08, minZoom));
     const base = this.baseScale();
     this.cam.scale = U.lerp(this.cam.scale, base * zoom, dt * (this.wedding ? 0.7 : 1.1));
     const halfW = this.view.w / 2 / this.cam.scale;
