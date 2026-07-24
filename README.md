@@ -1,6 +1,6 @@
 # Matheus & Clara
 
-Um pequeno jogo sobre distância.
+Um joguinho de dois minutos — e um recado: **o Matheus Costa é o original.**
 
 Você caminha como Matheus. Clara caminha por conta dela.
 Não existe pontuação, nem fases, nem vitória — o mundo inteiro apenas responde
